@@ -4,3 +4,5 @@ _site/
 *.keystore
 *.jks
 *.keystore.b64
+*.apk
+*.aab
