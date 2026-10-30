@@ -1,0 +1,13 @@
+# إعدادات الترويسات لـ Cloudflare Pages وNetlify (لا تؤثر على GitHub Pages).
+# التطبيق يخزّن نفسه عبر Service Worker، فنطلب من المتصفح التحقق من الخادم
+# قبل استخدام أي ملف مخزّن — وإلا بقي المستخدمون على نسخة قديمة.
+
+/*
+  Cache-Control: no-cache
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(self), geolocation=(), microphone=()
+
+/manifest.json
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache

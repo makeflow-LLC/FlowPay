@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">فلو باي</string>
+    <string name="title_activity_main">فلو باي</string>
+    <string name="package_name">com.makeflow.flowpay</string>
+    <string name="custom_url_scheme">com.makeflow.flowpay</string>
+</resources>

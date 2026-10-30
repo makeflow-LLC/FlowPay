@@ -1,0 +1,21 @@
+{
+  "name": "flowpay",
+  "private": true,
+  "description": "فلو باي — تحويل عبر جوال باي وبال باي وبنك فلسطين بضغطة وحدة. نفس ملفات الويب تُنشر على GitHub Pages وتُغلَّف كتطبيق أندرويد عبر Capacitor.",
+  "scripts": {
+    "www": "node scripts/build-www.mjs www",
+    "sync": "npm run www && cap sync android",
+    "apk": "npm run sync && cd android && ./gradlew assembleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/share": "^8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.0"
+  },
+  "version": "2.0.0"
+}

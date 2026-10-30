@@ -1,0 +1,96 @@
+# يبني تطبيق أندرويد (APK للتثبيت المباشر، وAAB لـ Google Play) من نفس ملفات الويب.
+# مع كل دفعة إلى main: يُنشر الـ APK في صفحة Releases، ورابط التحميل الثابت:
+#   https://github.com/<owner>/<repo>/releases/latest/download/flowpay.apk
+# الدفع إلى أي فرع آخر يبني فقط، ويرفع الـ APK كـ artifact للتجربة.
+name: Android APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - run: npm run sync
+
+      # مفتاح التوقيع من أسرار المستودع (ANDROID_KEYSTORE_B64 وأخواته) — لا يوجد في المستودع.
+      # main لا يُنشر بدونه أبدًا (وإلا لن تُثبَّت التحديثات فوق النسخة القديمة)؛
+      # الفروع الأخرى تُبنى بمفتاح تطوير مؤقت للتجربة فقط.
+      - name: Require the signing key on main
+        if: github.ref == 'refs/heads/main'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -z "$KEYSTORE_B64" ]; then
+            echo "::error::Add the ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD repository secrets before releasing (see README)."
+            exit 1
+          fi
+      - name: Signing key from secrets
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        if: env.KEYSTORE_B64 != ''
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks"
+            echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+            echo "KEY_ALIAS=$KEY_ALIAS"
+            echo "KEY_PASSWORD=$KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Build APK and AAB
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew assembleRelease bundleRelease --no-daemon
+      - run: |
+          cp android/app/build/outputs/apk/release/app-release.apk flowpay.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab flowpay.aab
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flowpay-android
+          path: |
+            flowpay.apk
+            flowpay.aab
+
+  release:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: flowpay-android
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-${{ github.run_number }}
+          name: فلو باي لأندرويد — نسخة ${{ github.run_number }}
+          body: |
+            حمّل `flowpay.apk` على الجوال وثبّته. التحديث يُثبَّت فوق النسخة السابقة ولا يمسح المستفيدين ولا السجل.
+            رابط ثابت لآخر نسخة دائمًا: https://github.com/${{ github.repository }}/releases/latest/download/flowpay.apk
+            `flowpay.aab` للرفع على Google Play Console.
+          files: |
+            flowpay.apk
+            flowpay.aab
+          make_latest: true
