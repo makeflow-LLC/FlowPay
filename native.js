@@ -7,9 +7,10 @@
    2. حفظ النسخة الاحتياطية: WebView لا يُنزّل الملفات، فنكتبها في الكاش
       ونفتح شاشة المشاركة لحفظها في Drive أو إرسالها على واتساب.
    3. روابط الدفع (https://flowpay.sbs/?svc=...) التي تفتح التطبيق مباشرة.
+   4. أكواد USSD (UssdPlugin.java): اتصال مباشر بدون شاشة المتصل، من الشريحة
+      الصحيحة، أو تنفيذ الكود داخل التطبيق وقراءة رد الشبكة.
 
-   روابط tel: (مكالمة التحويل) و https: الخارجية (واتساب) يفتحها Capacitor
-   بنفسه في التطبيق المناسب، فلا تحتاج شيئًا هنا.
+   روابط https: الخارجية (واتساب) يفتحها Capacitor بنفسه في التطبيق المناسب.
 ================================================================ */
 (function (global) {
   'use strict';
@@ -26,6 +27,18 @@
   var Share = P.Share;
   var FS = P.Filesystem;
   var App = P.App;
+  var Ussd = P.FlowPayUssd;
+
+  if (Ussd) {
+    Native.ussd = {
+      // [{id, slot, carrier, name}] — فارغة إن رُفض الإذن أو لا توجد شرائح
+      sims: function () { return Ussd.sims().then(function (r) { return r.sims || []; }).catch(function () { return []; }); },
+      // simId = -1 يعني «اترك أندرويد يختار». النتيجة {mode: 'call' | 'dialer'}
+      dial: function (code, simId) { return Ussd.dial({ code: code, simId: simId }); },
+      // {ok, message} أو {ok: false, failure}
+      send: function (code, simId) { return Ussd.send({ code: code, simId: simId }); }
+    };
+  }
 
   // {title, text, url}
   Native.share = function (opts) {

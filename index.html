@@ -105,6 +105,7 @@
                 <button class="toggle-btn" id="pickContactBtn" onclick="pickFromPhone()" aria-label="اختر من جهات الاتصال" hidden>📇</button>
             </div>
             <div class="error-msg" id="phoneErr">يجب أن يبدأ بـ 05 ويكون 10 أرقام</div>
+            <div class="recent" id="recentBar" hidden></div>
         </div>
 
         <div class="input-group" id="amountGroup">
@@ -321,10 +322,45 @@
 <!-- Transfer Status -->
 <div class="overlay" id="ovStatus"><div class="modal center">
     <h3 class="ok">✓ تم التحويل؟</h3>
+    <p class="ussd-msg" id="statusMsg" hidden></p>
     <p class="hint">سُجّل كتحويل ناجح. لو ما اشتغل اضغط "لم يتم"</p>
     <div class="modal-btns">
         <button class="m-primary" onclick="setStatus('نجح')">تمام 👍</button>
         <button class="m-cancel danger" onclick="setStatus('فشل')">لم يتم ❌</button>
+    </div>
+</div></div>
+
+<!-- SIM choice (dual-SIM phones, Android app) -->
+<div class="overlay" id="ovSim"><div class="modal center">
+    <h3>📶 من أي شريحة؟</h3>
+    <p class="hint" id="simText"></p>
+    <div class="sim-list" id="simList"></div>
+    <p class="hint small">رح نتذكر اختيارك — تقدر تغيّره من الإعدادات</p>
+    <div class="modal-btns">
+        <button class="m-cancel" onclick="closeOv('ovSim')">إلغاء</button>
+    </div>
+</div></div>
+
+<!-- In-app USSD running -->
+<div class="overlay" id="ovBusy"><div class="modal center">
+    <div class="spinner"></div>
+    <h3>جارٍ تنفيذ التحويل…</h3>
+    <p class="hint">لا تغلق التطبيق — ننتظر رد الشبكة</p>
+</div></div>
+
+<!-- iPhone: USSD can't be dialed from a link -->
+<div class="overlay" id="ovIos"><div class="modal">
+    <h3>📋 تم نسخ الكود</h3>
+    <p class="hint center">الآيفون لا يسمح بفتح أكواد التحويل مباشرة، فكمّلها بنفسك:</p>
+    <ul class="install-steps">
+        <li><span class="step-num">1</span><span>افتح تطبيق <strong>الهاتف</strong> ← <strong>لوحة الأرقام</strong></span></li>
+        <li><span class="step-num">2</span><span>اضغط مطوّلاً مكان الرقم ← <strong>لصق</strong></span></li>
+        <li><span class="step-num">3</span><span>اضغط <strong>اتصال</strong> ✅</span></li>
+    </ul>
+    <div class="code-box ltr" id="iosCode"></div>
+    <div class="modal-btns">
+        <button class="m-primary" onclick="copyCodeAgain()">📋 انسخ مرة ثانية</button>
+        <button class="m-cancel" onclick="closeOv('ovIos')">تمام</button>
     </div>
 </div></div>
 
@@ -391,6 +427,15 @@
         <label class="settings-label" for="setHistLimit">الحد الأقصى لعدد عناصر السجل</label>
         <input type="tel" id="setHistLimit" class="ltr" inputmode="numeric" placeholder="200">
         <small class="settings-hint">بين 50 و 1000 — العناصر القديمة تُحذف تلقائياً</small>
+    </div>
+    <div class="settings-section native-only">
+        <div class="settings-label">📞 طريقة التحويل</div>
+        <label class="switch-row">
+            <input type="checkbox" id="setInApp">
+            <span>⚡ تنفيذ داخل التطبيق <small>(تجريبي)</small></span>
+        </label>
+        <small class="settings-hint">لجوال باي مع الرقم السري: يتم التحويل بدون شاشة الاتصال ويظهر لك رد الشبكة مباشرة. إذا ما زبط معك أطفئه.</small>
+        <button class="settings-btn" id="simResetBtn" onclick="resetSims()">📶 إعادة اختيار الشريحة لكل محفظة</button>
     </div>
     <div class="settings-section">
         <div class="settings-label">💾 نسخ احتياطي للبيانات</div>

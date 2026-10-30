@@ -51,6 +51,11 @@
          tools:node="remove" يمنع أي إضافة مستقبلية من إعادة هذا الإذن خِفية. -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove" />
+    <!-- الاتصال بكود التحويل مباشرة (بدون شاشة المتصل) ومن الشريحة الصحيحة.
+         يُطلب عند أول تحويل؛ إن رُفض يفتح المتصل بالكود جاهزًا كما في نسخة الويب. -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <!-- قراءة أسماء الشرائح فقط (جوال / أوريدو) لاختيار شريحة كل محفظة في الجوالات ثنائية الشريحة -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <!-- مسح كود QR للدفع. يُطلب عند أول ضغطة على زر QR فقط -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
