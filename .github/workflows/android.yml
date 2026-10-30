@@ -1,5 +1,5 @@
 # يبني تطبيق أندرويد (APK للتثبيت المباشر، وAAB لـ Google Play) من نفس ملفات الويب.
-# مع كل دفعة إلى main: يُنشر الـ APK في صفحة Releases، ورابط التحميل الثابت:
+# مع كل دفعة إلى main أو فروع claude/: يُنشر الـ APK في صفحة Releases، ورابط التحميل الثابت:
 #   https://github.com/<owner>/<repo>/releases/latest/download/flowpay.apk
 # الدفع إلى أي فرع آخر يبني فقط، ويرفع الـ APK كـ artifact للتجربة.
 name: Android APK
@@ -30,6 +30,12 @@ jobs:
           java-version: 21
       - run: npm ci
       - run: npm run sync
+      # بدون مفتاح في الأسرار يُوقَّع بمفتاح التطوير؛ نحفظه في كاش GitHub حتى يبقى نفسه
+      # بين البنايات، فتُثبَّت كل نسخة تجريبية فوق السابقة دون حذف بيانات المستخدم.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: android-debug-keystore
 
       # مفتاح التوقيع من أسرار المستودع (ANDROID_KEYSTORE_B64 وأخواته) — لا يوجد في المستودع.
       # main لا يُنشر بدونه أبدًا (وإلا لن تُثبَّت التحديثات فوق النسخة القديمة)؛
@@ -76,7 +82,7 @@ jobs:
 
   release:
     needs: build
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/claude/')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -85,7 +91,9 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: android-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
           name: فلو باي لأندرويد — نسخة ${{ github.run_number }}
+          prerelease: ${{ github.ref != 'refs/heads/main' }}
           body: |
             حمّل `flowpay.apk` على الجوال وثبّته. التحديث يُثبَّت فوق النسخة السابقة ولا يمسح المستفيدين ولا السجل.
             رابط ثابت لآخر نسخة دائمًا: https://github.com/${{ github.repository }}/releases/latest/download/flowpay.apk
@@ -93,4 +101,4 @@ jobs:
           files: |
             flowpay.apk
             flowpay.aab
-          make_latest: true
+          make_latest: ${{ github.ref == 'refs/heads/main' }}
