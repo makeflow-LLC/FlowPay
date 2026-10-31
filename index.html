@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#0b1c2b">
     <meta name="color-scheme" content="dark">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -40,14 +40,11 @@
 <div class="container">
 <div class="page active" id="pageHome">
     <div class="header">
-        <div class="header-side"></div>
-        <div class="brand">
-            <img src="img/logo.png" class="app-logo" alt="فلو باي" width="180" height="40">
-            <small>من تطوير MakeFlow للحلول الذكية</small>
-        </div>
-        <div class="header-side header-actions">
-            <button class="icon-btn" onclick="showSettings()" aria-label="الإعدادات">⚙️</button>
+        <img src="img/logo.png" class="app-logo" alt="فلو باي" width="86" height="72">
+        <div class="header-actions">
+            <button class="icon-btn web-only" id="installManualBtn" onclick="showInstallGuide()" aria-label="تثبيت التطبيق">📲</button>
             <button class="icon-btn" onclick="showHelp()" aria-label="دليل الاستخدام">❓</button>
+            <button class="icon-btn" onclick="showSettings()" aria-label="الإعدادات">⚙️</button>
         </div>
     </div>
 
@@ -61,17 +58,14 @@
         <button class="ib-close" onclick="dismissInstall()" aria-label="إغلاق">×</button>
     </div>
 
-    <button class="install-manual-btn web-only" id="installManualBtn" onclick="showInstallGuide()">
-        📲 تثبيت التطبيق على جوالك
-    </button>
-
     <div class="main-tabs" role="tablist">
-        <button class="main-tab active" role="tab" onclick="switchMain('send',this)">📤 إرسال</button>
-        <button class="main-tab" role="tab" onclick="switchMain('receive',this)">📥 استقبال</button>
+        <button class="main-tab active" role="tab" onclick="switchMain('send',this)">إرسال</button>
+        <button class="main-tab" role="tab" onclick="switchMain('receive',this)">استقبال</button>
     </div>
 
     <div class="section active" id="sendSection">
 
+    <div class="step-title"><span>1</span> اختر المحفظة</div>
     <div class="services" id="sendServices">
         <button class="service-card" data-svc="jawwal" onclick="switchTab('jawwal')">
             <img src="img/jawwalpay.png" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><b class="svc-badge" hidden>JP</b>
@@ -87,13 +81,13 @@
         </button>
     </div>
 
-    <button class="scan-cta" onclick="startScanner()">📷 امسح كود الدفع (QR) عند التاجر</button>
-
-    <p class="choose-hint" id="chooseSvcHint">👆 اختر المحفظة أو امسح كود التاجر</p>
+    <button class="scan-cta" id="scanCta" onclick="startScanner()">
+        <span class="scan-ico">📷</span>
+        <span><b>عند تاجر؟ امسح كود الدفع</b><small>بنعبّيلك المحفظة ورقم التاجر لحالنا</small></span>
+    </button>
 
     <div class="card" id="formCard" hidden>
         <div class="input-group" id="jawwalTypeGroup" hidden>
-            <label>بدك تحوّل لمين؟</label>
             <div class="transfer-type">
                 <button type="button" class="active" data-type="1" onclick="setJawwalType('1')">👤 لصديق</button>
                 <button type="button" data-type="2" onclick="setJawwalType('2')">🏪 دفع لتاجر</button>
@@ -101,25 +95,33 @@
         </div>
 
         <div class="input-group" id="phoneGroup">
-            <label for="phone" id="phoneLabel">رقم المحوّل إليه</label>
+            <div class="label-row">
+                <label for="phone" id="phoneLabel">رقم المحوّل إليه</label>
+                <button class="link-btn" id="beneficiariesToggle" onclick="toggleBeneficiaries()" aria-expanded="false">👥 المحفوظين</button>
+            </div>
             <div class="input-wrap">
                 <input type="tel" id="phone" class="has-icon" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" autocomplete="off" oninput="onPhoneInput()">
                 <button class="toggle-btn" id="pickContactBtn" onclick="pickFromPhone()" aria-label="اختر من جهات الاتصال" hidden>📇</button>
             </div>
             <div class="error-msg" id="phoneErr">يجب أن يبدأ بـ 05 ويكون 10 أرقام</div>
+            <div class="beneficiaries-panel" id="beneficiariesPanel">
+                <div class="card-title">المستفيدون المحفوظون <button onclick="showAddContact()">+ إضافة</button></div>
+                <div id="contactsBar"></div>
+            </div>
             <div class="recent" id="recentBar" hidden></div>
         </div>
 
         <div class="input-group" id="amountGroup">
             <label for="amount">المبلغ (شيكل)</label>
             <div class="amounts" id="sendAmounts">
-                <button class="amt-btn" onclick="setAmt(3,this)">3</button>
                 <button class="amt-btn" onclick="setAmt(5,this)">5</button>
                 <button class="amt-btn" onclick="setAmt(10,this)">10</button>
                 <button class="amt-btn" onclick="setAmt(20,this)">20</button>
+                <button class="amt-btn" onclick="setAmt(50,this)">50</button>
             </div>
             <div class="input-wrap">
                 <input type="text" id="amount" placeholder="أو اكتب مبلغ آخر" inputmode="decimal" autocomplete="off" oninput="onAmountInput()">
+                <span class="unit">₪</span>
             </div>
             <div class="error-msg warn" id="amountWarn">⚠️ مبلغ كبير — تأكد جيداً قبل التحويل</div>
         </div>
@@ -130,28 +132,15 @@
                 <input type="password" id="pin" placeholder="يسرّع التحويل بخطوة وحدة" inputmode="numeric" maxlength="4" autocomplete="off" oninput="onPinInput()">
                 <button class="toggle-btn" onclick="togglePin(this)" aria-label="إظهار الرقم السري">👁️</button>
             </div>
-            <p class="hint">💡 إدخاله يُتم التحويل بخطوة واحدة فورياً.<br>بدونه ستحتاج إدخاله يدوياً أثناء المكالمة.</p>
-            <p class="hint small">🔒 لا يُحفظ ولا يُرسل لأحد — يبقى على جهازك فقط</p>
+            <p class="hint small">🔒 بيسرّع التحويل لخطوة وحدة — لا يُحفظ ولا يُرسل لأحد</p>
         </div>
 
+        <button class="link-btn center-link" id="payLinkBtn" onclick="sendPayLink()">📩 بدك حدا يحوّلك؟ ابعتله رابط دفع</button>
+    </div>
+
+    <!-- زر التحويل ثابت أسفل الشاشة: دائماً بمتناول الإصبع -->
+    <div class="action-bar" id="actionBar" hidden>
         <button id="callBtn" class="btn-main" onclick="confirmCall()" disabled>📞 حوّل الآن</button>
-        <p class="hint center">سيفتح المتصل — اضغط اتصال وخلص!</p>
-        <p class="hint center safe">🛡️ فلو باي يجهّز رقم الحوالة فقط — لا يلمس أموالك</p>
-    </div>
-
-    <div id="contactsCard" hidden>
-        <button class="beneficiaries-toggle" onclick="toggleBeneficiaries()" aria-expanded="false" id="beneficiariesToggle">
-            <span>👥 المستفيدون المحفوظون</span><span class="arrow">⌄</span>
-        </button>
-        <div class="beneficiaries-panel" id="beneficiariesPanel">
-            <div class="card-title">اختر مستفيداً <button onclick="showAddContact()">+ إضافة</button></div>
-            <div id="contactsBar"></div>
-        </div>
-    </div>
-
-    <div class="btn-row" id="secondaryActions" hidden>
-        <button class="btn-sec" id="payLinkBtn" onclick="sendPayLink()">📩 رابط دفع</button>
-        <button class="btn-sec" onclick="startScanner()">📷 QR</button>
     </div>
 
     <p class="note" id="noteText"></p>
@@ -171,6 +160,7 @@
     </div>
 
     <p class="disclaimer">
+        من تطوير MakeFlow للحلول الذكية<br>
         فلو باي أداة مستقلة لتسهيل عمليات التحويل<br>
         غير تابعة لجوال باي · بال باي · بنك فلسطين<br>
         جميع العمليات تتم عبر شبكة الاتصالات مباشرةً
@@ -265,6 +255,7 @@
 <!-- Bottom Navigation -->
 <nav class="bottom-nav">
     <button class="nav-item active" data-page="home" onclick="navTo('home')"><span class="nav-icon">🏠</span>الرئيسية</button>
+    <button class="nav-scan" onclick="startScanner()" aria-label="امسح كود QR"><span>📷</span></button>
     <button class="nav-item" data-page="history" onclick="navTo('history')"><span class="nav-icon">📊</span>السجل</button>
 </nav>
 

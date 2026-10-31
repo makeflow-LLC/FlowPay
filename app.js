@@ -232,20 +232,19 @@ function selectService(svc) {
     tab = svc;
     document.querySelectorAll('#sendServices .service-card').forEach(c => c.classList.toggle('active', c.dataset.svc === svc));
     $('formCard').hidden = false;
-    $('secondaryActions').hidden = false;
-    $('chooseSvcHint').hidden = true;
+    $('actionBar').hidden = false;
+    document.body.classList.add('has-action');
+    $('scanCta').hidden = true;
     const bop = svc === 'bop';
     $('jawwalTypeGroup').hidden = svc !== 'jawwal';
     $('phoneGroup').hidden = bop;
     $('amountGroup').hidden = bop;
-    $('contactsCard').hidden = bop;
     $('payLinkBtn').hidden = bop;
     setBeneficiaries(false);
     updateTypeUI();
     $('pinLabel').innerHTML = esc(SVC[svc].pinTitle) + ' <span class="optional">(اختياري)</span>';
     $('pin').placeholder = SVC[svc].pinPh;
     $('noteText').textContent = SVC[svc].note;
-    $('callBtn').textContent = CAN_DIAL ? '📞 حوّل الآن' : '📋 جهّز الكود';
     renderRecent();
     gen();
 }
@@ -330,9 +329,15 @@ function isReady() {
     return tab === 'bop' || (!!tab && isValidTo(phone) && isValidAmt(amount));
 }
 function gen() {
-    $('callBtn').disabled = !isReady();
-    const amount = parseFloat($('amount').value);
-    $('amountWarn').classList.toggle('show', tab !== 'bop' && amount > threshold());
+    const ready = isReady();
+    $('callBtn').disabled = !ready;
+    // الزر يقول بالضبط ماذا سيحدث: «حوّل 20 ₪ لأحمد»
+    const { phone, amount } = formValues();
+    let label = CAN_DIAL ? '📞 حوّل الآن' : '📋 جهّز الكود';
+    if (tab === 'bop') label = CAN_DIAL ? '📞 افتح قائمة البنك' : label;
+    else if (ready) label = (CAN_DIAL ? '📞 حوّل ' : '📋 جهّز ') + amount + ' ₪ لـ ' + (contactName(phone) || phone);
+    $('callBtn').textContent = label;
+    $('amountWarn').classList.toggle('show', tab !== 'bop' && parseFloat(amount) > threshold());
 }
 
 function confirmCall() {

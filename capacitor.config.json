@@ -2,8 +2,8 @@
   "appId": "com.makeflow.flowpay",
   "appName": "فلو باي",
   "webDir": "www",
-  "backgroundColor": "#0f172a",
+  "backgroundColor": "#0b1c2b",
   "android": {
-    "backgroundColor": "#0f172a"
+    "backgroundColor": "#0b1c2b"
   }
 }
