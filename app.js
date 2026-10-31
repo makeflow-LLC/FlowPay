@@ -312,9 +312,9 @@ function buildCode() {
     const full = isValidTo(phone) && isValidAmt(amount);
     const okPin = /^\d{4}$/.test(pin);
     if (tab === 'jawwal') return okPin && full ? `*110*${jawwalType}*${pin}*${phone}*${amount}*1#` : `*110*${jawwalType}#`;
-    // بال باي: بعد الرقم والمبلغ تسأل عن الرقم السري ثم «1. تأكيد» — نضيف الجوابين للكود
-    // فيتم التحويل بخطوة واحدة مثل جوال باي
-    if (tab === 'palpay') return full ? `*370*1*1*${phone}*${amount}` + (okPin ? `*${pin}*1#` : '#') : '*370*1#';
+    // بال باي ترفض الرقم السري داخل الكود («Invalid Transaction Code»): تسأل عنه ثم عن
+    // «1. تأكيد» أثناء الجلسة، فيُنسخ الرقم السري للصق
+    if (tab === 'palpay') return full ? `*370*1*1*${phone}*${amount}#` : '*370*1#';
     if (tab === 'bop') return okPin ? `*267*${pin}#` : '*267#';
     return '';
 }
@@ -364,7 +364,6 @@ function maskPin(code) {
     const pin = $('pin').value;
     if (!/^\d{4}$/.test(pin)) return code;
     // الرقم السري يأتي مباشرة بعد بادئة الكود: *110*1*PIN* أو *267*PIN#
-    if (tab === 'palpay') return code.replace(/\*\d{4}\*1#$/, '*••••*1#');
     return code.replace(/^(\*110\*\d\*|\*267\*)\d{4}/, '$1••••');
 }
 
@@ -377,7 +376,8 @@ function ussdSteps(code) {
         if (pin) steps.push('التحويل يتم بخطوة وحدة — استنى رسالة التأكيد من جوال باي');
         else steps.push('رح تفتح قائمة جوال باي — أدخل الرقم والمبلغ والرقم السري لما يطلبهم');
     } else if (tab === 'palpay') {
-        steps.push(pin ? 'الرقم السري والتأكيد بيتعبّوا لحالهم — التحويل بخطوة وحدة' : 'رح يسألك عن الرقم السري وبعدها تأكّد (اكتب 1)');
+        steps.push(pin ? 'لما يطلب الرقم السري: اضغط مطوّلاً ← لصق (منسوخ جاهز) ← Send' : 'لما يطلب الرقم السري: اكتبه ← Send');
+        steps.push('بعدها بيطلع اسم المستلم: اكتب 1 للتأكيد ← Send');
     } else if (tab === 'bop') {
         steps.push(pin ? 'رح تدخل قائمة بنك فلسطين مباشرة — اختر نوع العملية' : 'رح يطلب الرقم السري ثم تظهر قائمة البنك');
     }
@@ -446,9 +446,10 @@ async function proceedCall() {
     session.set('fp_pending', entry.id);
     session.set('fp_pending_phone', !bop && ci < 0 ? phone : '');
     const open = document.querySelector('.overlay.show');
-    const fullCode = (tab === 'jawwal' || tab === 'palpay') && /^\d{4}$/.test(pin) && isValidTo(phone);
+    // الكود الكامل (يتم بخطوة واحدة) موجود لجوال باي فقط
+    const fullCode = tab === 'jawwal' && /^\d{4}$/.test(pin) && isValidTo(phone);
     // إن لم يكتمل التنفيذ داخل التطبيق نكمّل بالاتصال العادي (الرقم السري يُنسخ للصق)
-    retry = fullCode ? { code: tab === 'palpay' ? `*370*1*1*${phone}*${amount}#` : `*110*${jawwalType}#`, pin, simId } : null;
+    retry = fullCode ? { code: `*110*${jawwalType}#`, pin, simId } : null;
 
     // الرقم السري لا يبقى في الحقل بعد استخدامه
     $('pin').value = '';
@@ -470,19 +471,26 @@ async function proceedCall() {
         let res;
         try { res = await Native.ussd.send(code, simId); } catch (e) { res = { ok: false }; }
         const msg = res.ok && res.message ? res.message.trim() : '';
-        const incomplete = !msg || /(^|\n)\s*\d\s*[.)\-]|أدخل|ادخل/.test(msg);
+        // رد بقائمة/سؤال أو برسالة خطأ = التحويل لم يتم ولم تتحرك أي أموال
+        const failed = /invalid|error|fail|denied|reject|wrong|خطأ|خاطئ|غير صحيح|غير صالح|فشل|رفض|مرفوض|تعذر|لا يمكن|غير كاف/i.test(msg);
+        const incomplete = !msg || failed || /(^|\n)\s*\d\s*[.)\-]|أدخل|ادخل/.test(msg);
+        if (failed) {
+            const h = hist.find(h => h.id === session.get('fp_pending'));
+            if (h) { h.status = 'فشل'; saveHist(); }
+        }
         $('statusMsg').hidden = false;
         $('statusMsg').textContent = msg
-            ? msg + (incomplete ? '\n\n⚠️ يبدو إن التحويل ما كمل — كمّله بالاتصال تحت.' : '')
+            ? msg + (incomplete ? '\n\n⚠️ التحويل ما تم — ما انخصم شي. بتقدر تكمّله بالاتصال تحت.' : '')
             : '⚠️ ما وصل رد من الشبكة. افحص رسائل المحفظة قبل ما تعيد — لا تكرر التحويل قبل ما تتأكد.';
         $('statusRetry').hidden = !incomplete || !retry;
+        setStatusLook(failed);
         swapOv('ovBusy', 'ovStatus');
         return;
     }
     retry = null;
 
     if (open) closeOv(open.id);
-    if (tab === 'palpay' && pin && !fullCode) {
+    if (tab === 'palpay' && pin) {
         copyText(pin).then(() => toast('تم نسخ الرقم السري — الصقه عند الطلب'), () => {});
     } else if (!pin && tab !== 'palpay') {
         toast('ستمر بعدة خطوات يدوية');
@@ -503,6 +511,11 @@ async function proceedCall() {
 }
 
 let dialing = false, retry = null;
+function setStatusLook(failed) {
+    $('statusTitle').textContent = failed ? '❌ لم يتم التحويل' : '✓ تم التحويل؟';
+    $('statusTitle').className = failed ? 'danger' : 'ok';
+    $('statusHint').textContent = failed ? 'سُجّل كتحويل فاشل في السجل.' : 'سُجّل كتحويل ناجح. لو ما اشتغل اضغط "لم يتم"';
+}
 // كمّل بالاتصال العادي بعد تنفيذ داخل التطبيق لم يكتمل
 function retryByCall() {
     vib();
@@ -527,6 +540,7 @@ function maybeShowStatus() {
         if (session.get('fp_pending') && !document.hidden && !document.querySelector('.overlay.show')) {
             $('statusMsg').hidden = true;
             $('statusRetry').hidden = true;
+            setStatusLook(false);
             openOv('ovStatus');
         }
     }, 600);

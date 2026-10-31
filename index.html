@@ -242,9 +242,9 @@
 
 <!-- Transfer Status -->
 <div class="overlay" id="ovStatus"><div class="modal center">
-    <h3 class="ok">✓ تم التحويل؟</h3>
+    <h3 class="ok" id="statusTitle">✓ تم التحويل؟</h3>
     <p class="ussd-msg" id="statusMsg" hidden></p>
-    <p class="hint">سُجّل كتحويل ناجح. لو ما اشتغل اضغط "لم يتم"</p>
+    <p class="hint" id="statusHint">سُجّل كتحويل ناجح. لو ما اشتغل اضغط "لم يتم"</p>
     <div class="modal-btns">
         <button class="m-primary" onclick="setStatus('نجح')">تمام 👍</button>
         <button class="m-cancel danger" onclick="setStatus('فشل')">لم يتم ❌</button>
@@ -363,7 +363,7 @@
             <input type="checkbox" id="setInApp">
             <span>⚡ التحويل داخل التطبيق</span>
         </label>
-        <small class="settings-hint">لما تدخل الرقم السري: التأكيد والرقم السري بيتعبّوا لحالهم ويظهرلك رد المحفظة جوّا التطبيق. إذا ما زبط معك أطفئه.</small>
+        <small class="settings-hint">جوال باي مع الرقم السري: التحويل كله بيصير جوّا التطبيق ويظهرلك رد المحفظة. (بال باي ما بتسمح بهيك — بتسأل عن الرقم السري أثناء الاتصال.)</small>
         <button class="settings-btn" id="simResetBtn" onclick="resetSims()">📶 إعادة اختيار الشريحة لكل محفظة</button>
     </div>
     <div class="settings-section">
