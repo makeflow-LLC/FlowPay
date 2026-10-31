@@ -93,7 +93,6 @@ jobs:
           tag_name: android-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
           name: فلو باي لأندرويد — نسخة ${{ github.run_number }}
-          prerelease: ${{ github.ref != 'refs/heads/main' }}
           body: |
             حمّل `flowpay.apk` على الجوال وثبّته. التحديث يُثبَّت فوق النسخة السابقة ولا يمسح المستفيدين ولا السجل.
             رابط ثابت لآخر نسخة دائمًا: https://github.com/${{ github.repository }}/releases/latest/download/flowpay.apk
@@ -101,4 +100,4 @@ jobs:
           files: |
             flowpay.apk
             flowpay.aab
-          make_latest: ${{ github.ref == 'refs/heads/main' }}
+          make_latest: true
