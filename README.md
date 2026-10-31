@@ -87,8 +87,11 @@ base64 -w0 flowpay.jks > flowpay.jks.b64
 |---|---|
 | `ANDROID_KEYSTORE_B64` | محتوى `flowpay.jks.b64` |
 | `ANDROID_KEYSTORE_PASSWORD` | كلمة سر الملف |
-| `ANDROID_KEY_ALIAS` | `flowpay` |
-| `ANDROID_KEY_PASSWORD` | كلمة سر المفتاح |
+
+(`ANDROID_KEY_ALIAS` و `ANDROID_KEY_PASSWORD` اختياريان: الافتراضي `flowpay` ونفس كلمة السر.)
+
+بدون هذه الأسرار يُوقَّع البناء بمفتاح تجريبي محفوظ في كاش GitHub. يكفي للتجربة، لكنه يُحذف
+بعد 7 أيام بلا بناء فيتغير المفتاح ويرفض الجوال التحديث — لا تنشر التطبيق للناس قبل إضافة المفتاح الدائم.
 
 ### فتح روابط الدفع في التطبيق مباشرة
 

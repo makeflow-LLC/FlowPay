@@ -30,40 +30,56 @@ jobs:
           java-version: 21
       - run: npm ci
       - run: npm run sync
-      # بدون مفتاح في الأسرار يُوقَّع بمفتاح التطوير؛ نحفظه في كاش GitHub حتى يبقى نفسه
-      # بين البنايات، فتُثبَّت كل نسخة تجريبية فوق السابقة دون حذف بيانات المستخدم.
-      - uses: actions/cache@v4
-        with:
-          path: ~/.android/debug.keystore
-          key: android-debug-keystore
-
-      # مفتاح التوقيع من أسرار المستودع (ANDROID_KEYSTORE_B64 وأخواته) — لا يوجد في المستودع.
-      # main لا يُنشر بدونه أبدًا (وإلا لن تُثبَّت التحديثات فوق النسخة القديمة)؛
-      # الفروع الأخرى تُبنى بمفتاح تطوير مؤقت للتجربة فقط.
+      # التوقيع: كل نسخة يجب أن تُوقَّع بنفس المفتاح وإلا رفض الجوال التحديث («التطبيق غير مثبت»).
+      #  1) المفتاح الدائم من أسرار المستودع: ANDROID_KEYSTORE_B64 و ANDROID_KEYSTORE_PASSWORD
+      #     (ANDROID_KEY_ALIAS و ANDROID_KEY_PASSWORD اختياريان: flowpay ونفس كلمة السر).
+      #  2) بدونه: مفتاح تجريبي يُنشأ مرة واحدة ويُحفظ في كاش GitHub. لا يصلح للنشر —
+      #     الكاش يُحذف بعد 7 أيام بلا بناء، وعندها يتغير المفتاح.
       - name: Require the signing key on main
         if: github.ref == 'refs/heads/main'
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
         run: |
           if [ -z "$KEYSTORE_B64" ]; then
-            echo "::error::Add the ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD repository secrets before releasing (see README)."
+            echo "::error::Add the ANDROID_KEYSTORE_B64 and ANDROID_KEYSTORE_PASSWORD repository secrets before releasing (see README)."
             exit 1
           fi
-      - name: Signing key from secrets
+      - name: Restore the test signing key
+        id: testkey
+        uses: actions/cache@v4
+        with:
+          path: ~/.flowpay-ci/test.jks
+          key: flowpay-test-keystore-v1
+      - name: Signing key
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        if: env.KEYSTORE_B64 != ''
         run: |
-          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
-          {
-            echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks"
-            echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
-            echo "KEY_ALIAS=$KEY_ALIAS"
-            echo "KEY_PASSWORD=$KEY_PASSWORD"
-          } >> "$GITHUB_ENV"
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "Signing with the permanent key from repository secrets"
+            echo "$KEYSTORE_B64" | tr -d ' \r\n' | base64 -d > "$RUNNER_TEMP/release.jks"
+            {
+              echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks"
+              echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "KEY_ALIAS=${KEY_ALIAS:-flowpay}"
+              echo "KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}"
+            } >> "$GITHUB_ENV"
+          else
+            echo "::warning::No permanent signing key in secrets — using the cached test key"
+            mkdir -p ~/.flowpay-ci
+            if [ ! -f ~/.flowpay-ci/test.jks ]; then
+              keytool -genkeypair -keystore ~/.flowpay-ci/test.jks -alias flowpay -storepass flowpay-test -keypass flowpay-test \
+                -dname "CN=FlowPay Test" -keyalg RSA -keysize 2048 -validity 10000
+            fi
+            {
+              echo "KEYSTORE_FILE=$HOME/.flowpay-ci/test.jks"
+              echo "KEYSTORE_PASSWORD=flowpay-test"
+              echo "KEY_ALIAS=flowpay"
+              echo "KEY_PASSWORD=flowpay-test"
+            } >> "$GITHUB_ENV"
+          fi
 
       - name: Build APK and AAB
         working-directory: android
