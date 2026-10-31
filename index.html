@@ -249,6 +249,7 @@
         <button class="m-primary" onclick="setStatus('نجح')">تمام 👍</button>
         <button class="m-cancel danger" onclick="setStatus('فشل')">لم يتم ❌</button>
     </div>
+    <button class="settings-btn retry-btn" id="statusRetry" onclick="retryByCall()" hidden>📞 كمّل عبر الاتصال</button>
 </div></div>
 
 <!-- SIM choice (dual-SIM phones, Android app) -->
@@ -360,9 +361,9 @@
         <div class="settings-label">📞 طريقة التحويل</div>
         <label class="switch-row">
             <input type="checkbox" id="setInApp">
-            <span>⚡ تنفيذ داخل التطبيق <small>(تجريبي)</small></span>
+            <span>⚡ التحويل داخل التطبيق</span>
         </label>
-        <small class="settings-hint">لجوال باي مع الرقم السري: يتم التحويل بدون شاشة الاتصال ويظهر لك رد الشبكة مباشرة. إذا ما زبط معك أطفئه.</small>
+        <small class="settings-hint">لما تدخل الرقم السري: التأكيد والرقم السري بيتعبّوا لحالهم ويظهرلك رد المحفظة جوّا التطبيق. إذا ما زبط معك أطفئه.</small>
         <button class="settings-btn" id="simResetBtn" onclick="resetSims()">📶 إعادة اختيار الشريحة لكل محفظة</button>
     </div>
     <div class="settings-section">
