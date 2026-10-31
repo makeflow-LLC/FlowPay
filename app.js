@@ -10,11 +10,11 @@ const APP_URL = 'https://flowpay.sbs/';
 const SUPPORT_WA = '970597750343';
 
 const SVC = {
-    jawwal: { name: 'جوال باي', note: 'جوال باي — أدخل الرقم السري للتحويل بخطوة واحدة',
+    jawwal: { name: 'جوال باي',
         pinTitle: 'الرقم السري المكون من 4 أرقام', pinPh: 'اختياري — لتسريع التحويل' },
-    palpay: { name: 'بال باي', note: 'بال باي — سيطلب الرقم السري بعد الاتصال',
+    palpay: { name: 'بال باي',
         pinTitle: 'الرقم السري المكون من 4 أرقام', pinPh: 'يُنسخ للحافظة لإلصاقه أثناء المكالمة' },
-    bop: { name: 'بنك فلسطين', note: 'بنك فلسطين — قائمة تفاعلية',
+    bop: { name: 'بنك فلسطين',
         pinTitle: 'الرقم السري لبنك فلسطين', pinPh: 'للدخول للقائمة التفاعلية' }
 };
 
@@ -41,7 +41,7 @@ const session = {
     set(k, v) { try { v ? sessionStorage.setItem(k, v) : sessionStorage.removeItem(k); } catch (e) {} }
 };
 
-let tab = '', jawwalType = '1', rcvTab = 'jawwal', selCategory = '', editContactIdx = -1;
+let tab = '', jawwalType = '1', selCategory = '', editContactIdx = -1;
 let histFilterVal = 'all', histShown = 60, deferredPrompt = null, newWorker = null;
 let contacts = store.list('fp_contacts');
 let hist = store.list('fp_hist');
@@ -218,12 +218,6 @@ function navTo(page) {
     else showPage(page);
 }
 
-function switchMain(sec, el) {
-    vib();
-    document.querySelectorAll('.main-tab').forEach(t => t.classList.toggle('active', t === el));
-    document.querySelectorAll('.section').forEach(s => s.classList.toggle('active', s.id === sec + 'Section'));
-}
-
 function showHelp() { vib(); openOv('ovHelp'); }
 function closeOnboard() { closeOv('ovOnboard'); store.set('fp_onboarded', '1'); }
 
@@ -239,12 +233,10 @@ function selectService(svc) {
     $('jawwalTypeGroup').hidden = svc !== 'jawwal';
     $('phoneGroup').hidden = bop;
     $('amountGroup').hidden = bop;
-    $('payLinkBtn').hidden = bop;
     setBeneficiaries(false);
     updateTypeUI();
     $('pinLabel').innerHTML = esc(SVC[svc].pinTitle) + ' <span class="optional">(اختياري)</span>';
     $('pin').placeholder = SVC[svc].pinPh;
-    $('noteText').textContent = SVC[svc].note;
     renderRecent();
     gen();
 }
@@ -533,9 +525,6 @@ function acceptSave() {
 }
 
 // ===== PAYMENT LINKS & QR PAYLOADS =====
-function payLink(svc, phone, amount, type) {
-    return APP_URL + '?svc=' + svc + '&phone=' + phone + '&amt=' + amount + (svc === 'jawwal' && type === '2' ? '&type=2' : '');
-}
 // يقبل رابط دفع من فلو باي، أو الصيغة القديمة flowpay:svc:phone:amount — ويرفض أي قيمة غير صالحة
 // لأنها ستدخل في كود USSD
 function parsePayload(str) {
@@ -628,8 +617,6 @@ function pickScannedSvc(svc, type) {
 }
 function fillTransfer(p, msg) {
     if (curPage !== 'home') navTo('home');
-    const sendTab = document.querySelector('.main-tab');
-    if (!sendTab.classList.contains('active')) switchMain('send', sendTab);
     jawwalType = p.svc === 'jawwal' ? p.type : '1';
     $('phone').value = p.phone;
     $('amount').value = p.amount || '';
@@ -642,34 +629,13 @@ function fillTransfer(p, msg) {
     else { toast(msg + ' — اكتب المبلغ'); setTimeout(() => $('amount').focus(), 350); }
 }
 
-function sendPayLink() {
-    vib();
-    const { phone, amount } = formValues();
-    if (!isValidTo(phone)) { toast('أدخل رقم صحيح أولاً'); return; }
-    if (!isValidAmt(amount)) { toast('أدخل المبلغ'); return; }
-    const link = payLink(tab, phone, amount, jawwalType);
-    const text = 'مطلوب تحويل ' + amount + ' شيكل\nللرقم: ' + phone + '\nعبر: ' + SVC[tab].name + '\n\nحوّل بضغطة وحدة من فلو باي:';
-    shareText({ title: 'طلب دفع — فلو باي', text, url: link });
-}
 
 function shareApp() {
     vib();
     shareText({ title: 'فلو باي', text: 'جرّب تطبيق فلو باي — يسهّل عليك التحويلات بضغطة واحدة!', url: APP_URL });
 }
 
-function shareQRApp() {
-    vib();
-    const box = $('shareQRBox');
-    box.hidden = !box.hidden;
-    if (!box.hidden && !$('shareQRCanvas').firstChild) $('shareQRCanvas').innerHTML = qrSvg(APP_URL, 5, 2);
-}
 
-function qrSvg(data, cell, margin) {
-    const qr = qrcode(0, 'M');
-    qr.addData(data);
-    qr.make();
-    return qr.createSvgTag(cell, margin);
-}
 
 // ===== CONTACT PICKER (Chrome Android) =====
 const hasContactPicker = 'contacts' in navigator && 'ContactsManager' in window;
@@ -1064,81 +1030,6 @@ function resetAllData() {
     }, 'ovSettings');
 }
 
-// ===== RECEIVE (QR) =====
-function switchRcvTab(t) {
-    vib();
-    rcvTab = t;
-    document.querySelectorAll('#rcvServices .service-card').forEach(c => c.classList.toggle('active', c.dataset.svc === t));
-    genQR();
-}
-function setRcvAmt(v, el) { vib(); clearAmtBtns('rcvAmounts'); el.classList.add('sel'); $('rcvAmount').value = v; genQR(); }
-function onRcvPhoneInput() {
-    const el = $('rcvPhone');
-    const v = normalizePhone(el.value);
-    if (v !== el.value) el.value = v;
-    if (isValidPh(v)) store.set('fp_my_phone', v);
-    genQR();
-}
-function onRcvAmountInput() {
-    const el = $('rcvAmount');
-    const v = cleanAmount(el.value);
-    if (v !== el.value) el.value = v;
-    clearAmtBtns('rcvAmounts');
-    genQR();
-}
-
-let lastQR = '';
-// الكود رابط دفع عادي: يُمسح من داخل فلو باي، أو بكاميرا أي جوال فيفتح فلو باي جاهزاً
-function genQR() {
-    const phone = $('rcvPhone').value.trim(), amount = $('rcvAmount').value.trim();
-    const ok = isValidPh(phone) && isValidAmt(amount);
-    $('qrOutput').hidden = !ok;
-    $('rcvHint').hidden = ok;
-    if (!ok) return;
-    const link = payLink(rcvTab, phone, amount, '1');
-    if (link === lastQR) return;
-    lastQR = link;
-    $('qrCanvas').innerHTML = qrSvg(link, 6, 2);
-    $('qrInfo').textContent = SVC[rcvTab].name + ' | ' + phone + ' | ' + amount + ' شيكل';
-}
-
-function shareQR() {
-    vib();
-    const svg = $('qrCanvas').querySelector('svg');
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const img = new Image();
-    img.onload = () => {
-        const pad = 24, scale = 3;
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width * scale + pad * 2;
-        canvas.height = img.height * scale + pad * 2;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(img, pad, pad, img.width * scale, img.height * scale);
-        const text = 'ادفع لي ' + $('rcvAmount').value + ' شيكل عبر ' + SVC[rcvTab].name + ' — امسح الكود أو افتح الرابط:\n' + lastQR;
-        if (Native.isNative) {
-            const b64 = canvas.toDataURL('image/png').split(',')[1];
-            Native.shareFile('flowpay-qr.png', b64, true, 'فلو باي QR').catch(() => {});
-            return;
-        }
-        canvas.toBlob(blob => {
-            const file = new File([blob], 'flowpay-qr.png', { type: 'image/png' });
-            if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                navigator.share({ files: [file], title: 'فلو باي QR', text }).catch(() => {});
-            } else if (navigator.share) {
-                navigator.share({ title: 'فلو باي QR', text }).catch(() => {});
-            } else {
-                downloadBlob(blob, 'flowpay-qr.png');
-                toast('تم تنزيل صورة الكود');
-            }
-        }, 'image/png');
-    };
-    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
-}
-
 // ===== QR SCANNER =====
 // BarcodeDetector المدمج إن وُجد (أسرع)، وإلا jsQR — يُحمَّل عند أول استخدام فقط
 let scanStream = null, scanTimer = null, detector = null, scanCanvas = null, jsqrLoading = null, lastBadScan = '';
@@ -1334,8 +1225,6 @@ function init() {
     $('phone').classList.toggle('has-icon', hasContactPicker);
     renderCats();
     renderContacts();
-    const myPhone = store.get('fp_my_phone', '');
-    if (myPhone) $('rcvPhone').value = myPhone;
 
     // بداية نظيفة لسجل الرجوع (بعد إعادة تحميل قد يبقى state قديم)
     if (history.state) history.replaceState(null, '');

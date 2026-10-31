@@ -9,7 +9,6 @@ const ASSETS = [
   './app.css?v=' + VERSION,
   './app.js?v=' + VERSION,
   './native.js?v=' + VERSION,
-  './vendor/qrcode.js',
   './vendor/jsQR.js',
   './manifest.json',
   './privacy.html',

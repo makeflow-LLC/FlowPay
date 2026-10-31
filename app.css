@@ -362,3 +362,5 @@ body.has-action{padding-bottom:calc(170px + env(safe-area-inset-bottom,0px))}
 .toast{background:var(--text);color:var(--bg);box-shadow:var(--shadow)}
 .has-action .toast{bottom:calc(160px + env(safe-area-inset-bottom,0px))}
 .qr-output{border:1px solid var(--line)}
+.footer-links{display:flex;gap:8px;justify-content:center;margin:26px 0 10px}
+.footer-links button{padding:9px 14px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--dim);font-size:13px;font-weight:600}

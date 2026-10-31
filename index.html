@@ -58,14 +58,9 @@
         <button class="ib-close" onclick="dismissInstall()" aria-label="إغلاق">×</button>
     </div>
 
-    <div class="main-tabs" role="tablist">
-        <button class="main-tab active" role="tab" onclick="switchMain('send',this)">إرسال</button>
-        <button class="main-tab" role="tab" onclick="switchMain('receive',this)">استقبال</button>
-    </div>
-
     <div class="section active" id="sendSection">
 
-    <div class="step-title"><span>1</span> اختر المحفظة</div>
+    <div class="step-title">اختر المحفظة</div>
     <div class="services" id="sendServices">
         <button class="service-card" data-svc="jawwal" onclick="switchTab('jawwal')">
             <img src="img/jawwalpay.png" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><b class="svc-badge" hidden>JP</b>
@@ -135,7 +130,6 @@
             <p class="hint small">🔒 بيسرّع التحويل لخطوة وحدة — لا يُحفظ ولا يُرسل لأحد</p>
         </div>
 
-        <button class="link-btn center-link" id="payLinkBtn" onclick="sendPayLink()">📩 بدك حدا يحوّلك؟ ابعتله رابط دفع</button>
     </div>
 
     <!-- زر التحويل ثابت أسفل الشاشة: دائماً بمتناول الإصبع -->
@@ -143,79 +137,13 @@
         <button id="callBtn" class="btn-main" onclick="confirmCall()" disabled>📞 حوّل الآن</button>
     </div>
 
-    <p class="note" id="noteText"></p>
-
-    <div class="promo-card">
-        <h4>عجبك التطبيق؟ شاركه مع أصحابك!</h4>
-        <p>ساعد غيرك يستفيد — شاركه الرابط بضغطة وحدة</p>
-        <div class="promo-btns">
-            <button class="promo-share" onclick="shareApp()">📤 مشاركة</button>
-            <button class="promo-share promo-dark" onclick="shareQRApp()">📱 QR</button>
-            <button class="promo-wa" onclick="openWhatsApp()">💬 تواصل</button>
-        </div>
-        <div id="shareQRBox" class="share-qr" hidden>
-            <div id="shareQRCanvas"></div>
-            <p>امسح الكود لفتح فلو باي</p>
-        </div>
+    <div class="footer-links">
+        <button onclick="shareApp()">📤 شارك التطبيق</button>
+        <button onclick="sendFeedback()">💬 اقتراح أو مساعدة</button>
     </div>
-
-    <p class="disclaimer">
-        من تطوير MakeFlow للحلول الذكية<br>
-        فلو باي أداة مستقلة لتسهيل عمليات التحويل<br>
-        غير تابعة لجوال باي · بال باي · بنك فلسطين<br>
-        جميع العمليات تتم عبر شبكة الاتصالات مباشرةً
-    </p>
-
-    <div class="feedback">
-        <button onclick="sendFeedback()">💡 عندي اقتراح أو ملاحظة</button>
-    </div>
+    <p class="disclaimer">فلو باي أداة مستقلة، غير تابعة لجوال باي أو بال باي أو بنك فلسطين.<br>التحويل يتم عبر شبكة الاتصالات مباشرةً · من تطوير MakeFlow</p>
     </div><!-- end sendSection -->
 
-    <div class="section" id="receiveSection">
-        <div class="card">
-            <div class="card-title">استقبال مدفوعات عبر QR</div>
-            <div class="input-group">
-                <label>الخدمة</label>
-                <div class="services" id="rcvServices">
-                    <button class="service-card active" data-svc="jawwal" onclick="switchRcvTab('jawwal')">
-                        <img src="img/jawwalpay.png" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><b class="svc-badge" hidden>JP</b>
-                        <span>جوال باي</span>
-                    </button>
-                    <button class="service-card" data-svc="palpay" onclick="switchRcvTab('palpay')">
-                        <img src="img/palpay.png" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><b class="svc-badge" hidden>PP</b>
-                        <span>بال باي</span>
-                    </button>
-                </div>
-            </div>
-            <div class="input-group">
-                <label for="rcvPhone">رقمك (المستقبِل)</label>
-                <div class="input-wrap">
-                    <input type="tel" id="rcvPhone" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" autocomplete="tel-national" oninput="onRcvPhoneInput()">
-                </div>
-            </div>
-            <div class="input-group">
-                <label for="rcvAmount">المبلغ المطلوب (شيكل)</label>
-                <div class="amounts" id="rcvAmounts">
-                    <button class="amt-btn" onclick="setRcvAmt(3,this)">3</button>
-                    <button class="amt-btn" onclick="setRcvAmt(5,this)">5</button>
-                    <button class="amt-btn" onclick="setRcvAmt(10,this)">10</button>
-                    <button class="amt-btn" onclick="setRcvAmt(15,this)">15</button>
-                    <button class="amt-btn" onclick="setRcvAmt(20,this)">20</button>
-                </div>
-                <div class="input-wrap">
-                    <input type="text" id="rcvAmount" placeholder="أو أدخل مبلغ آخر" inputmode="decimal" autocomplete="off" oninput="onRcvAmountInput()">
-                </div>
-            </div>
-            <p class="hint center" id="rcvHint">اكتب رقمك والمبلغ وسيظهر الكود فوراً</p>
-        </div>
-        <div class="qr-output" id="qrOutput" hidden>
-            <div id="qrCanvas"></div>
-            <p id="qrInfo"></p>
-            <div class="btn-row">
-                <button class="btn-sec" onclick="shareQR()">📤 مشاركة الكود</button>
-            </div>
-        </div>
-    </div><!-- end receiveSection -->
 </div><!-- end pageHome -->
 
 <!-- History Page -->
@@ -396,14 +324,6 @@
             </ul>
         </div>
         <div class="help-section">
-            <h4>📥 كيف أستقبل فلوس؟</h4>
-            <ul class="help-steps">
-                <li><span class="hs-num">1</span><span>اضغط على تبويب "استقبال" في الأعلى</span></li>
-                <li><span class="hs-num">2</span><span>اكتب رقمك والمبلغ المطلوب</span></li>
-                <li><span class="hs-num">3</span><span>سيظهر كود QR — خلّي الشخص يمسحه من فلو باي</span></li>
-            </ul>
-        </div>
-        <div class="help-section">
             <h4>📊 وين أشوف التحويلات القديمة؟</h4>
             <ul class="help-steps">
                 <li><span class="hs-num">1</span><span>اضغط "السجل" من الشريط السفلي</span></li>
@@ -482,7 +402,6 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<script src="vendor/qrcode.js"></script>
 <script src="native.js?v=__BUILD__"></script>
 <script src="app.js?v=__BUILD__"></script>
 </body>
