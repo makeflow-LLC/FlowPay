@@ -125,6 +125,8 @@ function sendFeedback() {
 }
 
 function copyText(text) {
+    // داخل تطبيق أندرويد: حافظة النظام مباشرة (حافظة المتصفح لا تعمل بثبات في WebView)
+    if (Native.copy) return Native.copy(text).catch(() => legacyCopy(text));
     if (navigator.clipboard && navigator.clipboard.writeText) {
         return navigator.clipboard.writeText(text).catch(() => legacyCopy(text));
     }
@@ -172,7 +174,7 @@ function hideOv(id) {
     if (id === 'scannerWrap') stopScanner();
     if (id === 'ovSim' && simResolve) { const r = simResolve; simResolve = null; r(null); }
     // الرجوع من نافذة «تم التحويل؟» = تبقى الحركة ناجحة ولا نسأل مرة أخرى
-    if (id === 'ovStatus') { session.set('fp_pending', ''); session.set('fp_pending_phone', ''); }
+    if (id === 'ovStatus') { session.set('fp_pending', ''); session.set('fp_pending_phone', ''); $('pendingCard').hidden = true; }
 }
 // نافذة تفتح مكان أخرى دون خطوة رجوع إضافية
 function swapOv(from, to) {
@@ -529,21 +531,22 @@ function retryByCall() {
     setTimeout(() => {
         session.set('fp_pending', id);
         session.set('fp_pending_phone', ph);
+        maybeShowStatus();
         dialing = true;
         Native.ussd.dial(r.code, r.simId).catch(() => { location.href = 'tel:' + r.code.replace(/#/g, '%23'); })
             .finally(() => setTimeout(() => { dialing = false; }, 1500));
     }, 300);
 }
+// «تم التحويل؟» شريط هادئ في الشاشة الرئيسية، لا نافذة منبثقة: نافذة بال باي/جوال باي
+// تظهر فوق التطبيق فلا نعرف متى انتهى المستخدم — فيجيب حين يخلص، دون أن نقاطعه
 function maybeShowStatus() {
-    if (!session.get('fp_pending') || document.hidden || dialing) return;
-    setTimeout(() => {
-        if (session.get('fp_pending') && !document.hidden && !document.querySelector('.overlay.show')) {
-            $('statusMsg').hidden = true;
-            $('statusRetry').hidden = true;
-            setStatusLook(false);
-            openOv('ovStatus');
-        }
-    }, 600);
+    const id = session.get('fp_pending');
+    const h = id && hist.find(h => h.id === id);
+    const card = $('pendingCard');
+    if (!h || $('ovStatus').classList.contains('show')) { card.hidden = true; return; }
+    const who = h.phone ? (contactName(h.phone) || h.phone) : '';
+    $('pendingText').textContent = h.service + (h.amount ? ' · ' + h.amount + ' ₪' : '') + (who ? ' ← ' + who : '');
+    card.hidden = false;
 }
 
 function setStatus(s) {
@@ -553,10 +556,12 @@ function setStatus(s) {
     const h = hist.find(h => h.id === id);
     if (h) { h.status = s; saveHist(); }
     toast(s === 'نجح' ? 'تم تسجيل: تحويل ناجح' : 'تم تسجيل: تحويل فاشل');
+    $('pendingCard').hidden = true;
+    const modal = $('ovStatus').classList.contains('show');
     if (phone && s === 'نجح' && !contacts.some(c => c.phone === phone)) {
         $('savePhone').textContent = phone;
-        swapOv('ovStatus', 'ovSave');
-    } else {
+        if (modal) swapOv('ovStatus', 'ovSave'); else openOv('ovSave');
+    } else if (modal) {
         closeOv('ovStatus');
     }
 }

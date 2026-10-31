@@ -60,6 +60,14 @@
 
     <div class="section active" id="sendSection">
 
+    <div class="pending-card" id="pendingCard" hidden>
+        <div class="pending-info"><b>⏳ خلّصت التحويل؟</b><span id="pendingText"></span></div>
+        <div class="pending-btns">
+            <button class="p-yes" onclick="setStatus('نجح')">✓ تم</button>
+            <button class="p-no" onclick="setStatus('فشل')">✕ ما تم</button>
+        </div>
+    </div>
+
     <div class="step-title">اختر المحفظة</div>
     <div class="services" id="sendServices">
         <button class="service-card" data-svc="jawwal" onclick="switchTab('jawwal')">

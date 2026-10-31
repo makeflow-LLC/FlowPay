@@ -28,6 +28,9 @@
   var FS = P.Filesystem;
   var App = P.App;
   var Ussd = P.FlowPayUssd;
+  var Clip = P.Clipboard;
+
+  if (Clip) Native.copy = function (text) { return Clip.write({ string: String(text) }); };
 
   if (Ussd) {
     Native.ussd = {
