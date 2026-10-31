@@ -15,7 +15,8 @@ const ASSETS = [
   './privacy.html',
   './img/logo.png',
   './icons/icon-192.png',
-  './icons/favicon.png'
+  './icons/favicon.png',
+  './img/og-image.png'
 ];
 // شعارات المحافظ قد لا تكون موجودة — لا نُفشل التثبيت بسببها
 const OPTIONAL = ['./img/jawwalpay.png', './img/palpay.png', './img/bop.png'];

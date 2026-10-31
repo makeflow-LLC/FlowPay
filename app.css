@@ -278,3 +278,5 @@ html:not(.native) .native-only{display:none!important}
 .switch-row small{color:var(--dim);font-weight:500}
 #simResetBtn{width:100%;margin-top:10px}
 .hist-repeat{padding:5px 10px;border-radius:6px;border:1px solid rgba(94,200,195,.4);background:var(--bg);color:var(--accent);font-size:12px;font-weight:600;margin-top:6px;margin-right:8px}
+.scan-cta{display:block;width:100%;padding:13px;margin:-4px 0 14px;border:1.5px dashed var(--accent);border-radius:var(--radius);background:var(--accent-soft);color:var(--accent);font-size:15px;font-weight:700}
+.scan-cta:active{transform:scale(.98)}

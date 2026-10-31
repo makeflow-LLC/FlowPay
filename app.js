@@ -84,6 +84,9 @@ function normalizePhone(raw) {
     return p;
 }
 function isValidPh(p) { return /^05\d{8}$/.test(p); }
+// «دفع لتاجر» في جوال باي يقبل رقم التاجر، وهو ليس بالضرورة رقم جوال
+function isMerchant() { return tab === 'jawwal' && jawwalType === '2'; }
+function isValidTo(p) { return isMerchant() ? /^\d{4,12}$/.test(p) : isValidPh(p); }
 function cleanAmount(raw) {
     let a = toDigits(raw).replace(/[٫,]/g, '.').replace(/[^\d.]/g, '');
     const dot = a.indexOf('.');
@@ -97,7 +100,9 @@ const IS_IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platf
 const CAN_DIAL = Native.isNative || !IS_IOS;
 function svcKey(name) { return Object.keys(SVC).find(k => SVC[k].name === name) || ''; }
 
-function contactName(phone) { const c = contacts.find(c => c.phone === phone); return c ? c.name : ''; }
+// أسماء التجار من أكواد QR الممسوحة (تُعرض في التأكيد وتُقترح عند الحفظ)
+const scanNames = {};
+function contactName(phone) { const c = contacts.find(c => c.phone === phone); return c ? c.name : (scanNames[phone] || ''); }
 
 let toastTimer = null;
 function toast(msg) {
@@ -246,7 +251,7 @@ function selectService(svc) {
 }
 function switchTab(t) { vib(); selectService(t); }
 
-function setJawwalType(type) { vib(); jawwalType = type; updateTypeUI(); gen(); }
+function setJawwalType(type) { vib(); jawwalType = type; updateTypeUI(); onPhoneInput(); }
 function updateTypeUI() {
     document.querySelectorAll('#jawwalTypeGroup button').forEach(b => b.classList.toggle('active', b.dataset.type === jawwalType));
     $('phoneLabel').textContent = tab === 'jawwal' ? (jawwalType === '2' ? 'رقم التاجر' : 'رقم الصديق') : 'رقم المحوّل إليه';
@@ -281,7 +286,7 @@ function onPhoneInput() {
     const el = $('phone');
     const v = normalizePhone(el.value);
     if (v !== el.value) el.value = v;
-    const bad = v.length >= 2 && (v.startsWith('05') ? v.length > 10 : !/^(\+|00|9)/.test(v));
+    const bad = !isMerchant() && v.length >= 2 && (v.startsWith('05') ? v.length > 10 : !/^(\+|00|9)/.test(v));
     $('phoneErr').classList.toggle('show', bad);
     el.classList.toggle('error', bad);
     gen();
@@ -313,7 +318,7 @@ function formValues() {
 }
 function buildCode() {
     const { phone, amount, pin } = formValues();
-    const full = isValidPh(phone) && isValidAmt(amount);
+    const full = isValidTo(phone) && isValidAmt(amount);
     const okPin = /^\d{4}$/.test(pin);
     if (tab === 'jawwal') return okPin && full ? `*110*${jawwalType}*${pin}*${phone}*${amount}*1#` : `*110*${jawwalType}#`;
     if (tab === 'palpay') return full ? `*370*1*1*${phone}*${amount}#` : '*370*1#';
@@ -322,7 +327,7 @@ function buildCode() {
 }
 function isReady() {
     const { phone, amount } = formValues();
-    return tab === 'bop' || (!!tab && isValidPh(phone) && isValidAmt(amount));
+    return tab === 'bop' || (!!tab && isValidTo(phone) && isValidAmt(amount));
 }
 function gen() {
     $('callBtn').disabled = !isReady();
@@ -335,7 +340,7 @@ function confirmCall() {
     const { phone, amount, pin } = formValues();
     if (pin && pin.length !== 4) { toast('الرقم السري يجب أن يكون 4 أرقام'); return; }
     if (tab !== 'bop') {
-        if (!isValidPh(phone)) { toast('أدخل رقم صحيح (يبدأ بـ 05)'); return; }
+        if (!isValidTo(phone)) { toast(isMerchant() ? 'أدخل رقم التاجر' : 'أدخل رقم صحيح (يبدأ بـ 05)'); return; }
         if (!isValidAmt(amount)) { toast('أدخل المبلغ'); return; }
     }
     let info;
@@ -441,7 +446,7 @@ async function proceedCall() {
     session.set('fp_pending', entry.id);
     session.set('fp_pending_phone', !bop && ci < 0 ? phone : '');
     const open = document.querySelector('.overlay.show');
-    const fullCode = tab === 'jawwal' && /^\d{4}$/.test(pin) && isValidPh(phone);
+    const fullCode = tab === 'jawwal' && /^\d{4}$/.test(pin) && isValidTo(phone);
 
     // الرقم السري لا يبقى في الحقل بعد استخدامه
     $('pin').value = '';
@@ -517,7 +522,8 @@ function setStatus(s) {
 }
 
 function acceptSave() {
-    fillContactForm(-1, { phone: $('savePhone').textContent }, 'حفظ المستفيد');
+    const ph = $('savePhone').textContent;
+    fillContactForm(-1, { phone: ph, name: scanNames[ph] || '' }, 'حفظ المستفيد');
     swapOv('ovSave', 'ovContact');
 }
 
@@ -546,8 +552,74 @@ function parsePayload(str) {
     phone = normalizePhone(phone);
     amount = toDigits(amount);
     if (svc !== 'jawwal' && svc !== 'palpay') return null;
-    if (!isValidPh(phone) || !isValidAmt(amount)) return null;
+    if (svc !== 'jawwal' || type !== '2') { if (!isValidPh(phone)) return null; }
+    else if (!/^\d{4,12}$/.test(phone)) return null;
+    if (!isValidAmt(amount)) return null;
     return { svc, phone, amount, type };
+}
+
+// ===== كود QR التجار (معيار سلطة النقد — EMV) =====
+// مثال من لافتة تاجر جوال باي:
+//   000201 010211 26 48 [00 ps.pma.ips][01 JPAYPS22][04 0502579935][10 EPAY] ... 59 08 Top shop ... 6304 CRC
+function emvFields(str) {
+    const out = {};
+    let i = 0;
+    while (i + 4 <= str.length) {
+        const id = str.substr(i, 2), len = parseInt(str.substr(i + 2, 2), 10);
+        if (!/^\d{2}$/.test(id) || isNaN(len) || i + 4 + len > str.length) return null;
+        out[id] = str.substr(i + 4, len);
+        i += 4 + len;
+    }
+    return i === str.length ? out : null;
+}
+function crc16(str) {
+    let crc = 0xFFFF;
+    for (let i = 0; i < str.length; i++) {
+        crc ^= str.charCodeAt(i) << 8;
+        for (let b = 0; b < 8; b++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF;
+    }
+    return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+// {svc?, phone, amount, type, name} — svc فارغ يعني «اسأل المستخدم أي محفظة»
+function parseMerchantQR(str) {
+    str = String(str || '').trim();
+    // لافتة فيها رقم جوال فقط (مثل كود بال باي)
+    const plain = normalizePhone(str);
+    if (/^[\d+\s-]{9,16}$/.test(str) && isValidPh(plain)) return { svc: '', phone: plain, amount: '', type: '1', name: '' };
+    if (!str.startsWith('000201')) return null;
+    const f = emvFields(str);
+    if (!f) return null;
+    if (f['63'] && crc16(str.slice(0, -4)) !== f['63'].toUpperCase()) return null;   // قراءة خاطئة للكود
+    for (let t = 26; t <= 51; t++) {
+        const tpl = f[String(t)] && emvFields(f[String(t)]);
+        if (!tpl) continue;
+        const bank = (tpl['01'] || '') + ' ' + (tpl['10'] || '');
+        let account = '';
+        for (const k of ['04', '02', '03', '05', '06']) if (/^\d{4,12}$/.test(tpl[k] || '')) { account = tpl[k]; break; }
+        if (!account) continue;
+        const svc = /JPAY|JAWWAL/i.test(bank) ? 'jawwal' : /PALP|PALPAY/i.test(bank) ? 'palpay' : '';
+        const amount = isValidAmt(f['54'] || '') ? f['54'] : '';
+        const name = (f['59'] || '').slice(0, 40);
+        if (svc === 'palpay' && !isValidPh(account)) continue;
+        return { svc, phone: account, amount, type: svc === 'jawwal' ? '2' : '1', name };
+    }
+    return null;
+}
+
+let pendingScan = null;
+function handleScanned(p) {
+    if (p.name) scanNames[p.phone] = p.name;
+    if (p.svc) { fillTransfer(p, p.name ? 'تاجر: ' + p.name : 'تم مسح QR'); return; }
+    pendingScan = p;
+    $('pickSvcPhone').textContent = p.phone;
+    openOv('ovPickSvc');
+}
+function pickScannedSvc(svc, type) {
+    vib();
+    const p = pendingScan;
+    pendingScan = null;
+    closeOv('ovPickSvc');
+    if (p) fillTransfer({ ...p, svc, type }, 'تم مسح QR');
 }
 function fillTransfer(p, msg) {
     if (curPage !== 'home') navTo('home');
@@ -555,18 +627,20 @@ function fillTransfer(p, msg) {
     if (!sendTab.classList.contains('active')) switchMain('send', sendTab);
     jawwalType = p.svc === 'jawwal' ? p.type : '1';
     $('phone').value = p.phone;
-    $('amount').value = p.amount;
+    $('amount').value = p.amount || '';
     $('phoneErr').classList.remove('show');
     $('phone').classList.remove('error');
     clearAmtBtns('sendAmounts');
     selectService(p.svc);
-    toast(msg + ': ' + p.amount + ' ₪ → ' + (contactName(p.phone) || p.phone));
+    const who = contactName(p.phone) || p.phone;
+    if (p.amount) toast(msg + ': ' + p.amount + ' ₪ → ' + who);
+    else { toast(msg + ' — اكتب المبلغ'); setTimeout(() => $('amount').focus(), 350); }
 }
 
 function sendPayLink() {
     vib();
     const { phone, amount } = formValues();
-    if (!isValidPh(phone)) { toast('أدخل رقم صحيح أولاً'); return; }
+    if (!isValidTo(phone)) { toast('أدخل رقم صحيح أولاً'); return; }
     if (!isValidAmt(amount)) { toast('أدخل المبلغ'); return; }
     const link = payLink(tab, phone, amount, jawwalType);
     const text = 'مطلوب تحويل ' + amount + ' شيكل\nللرقم: ' + phone + '\nعبر: ' + SVC[tab].name + '\n\nحوّل بضغطة وحدة من فلو باي:';
@@ -1139,14 +1213,16 @@ async function scanTick() {
             }
             if (!scanStream) return;
             if (result) {
-                const p = parsePayload(result);
-                if (p) {
+                const link = parsePayload(result);
+                const merchant = link ? null : parseMerchantQR(result);
+                if (link || merchant) {
                     vib(50);
                     closeOv('scannerWrap');
-                    fillTransfer(p, 'تم مسح QR');
+                    // ننتظر إغلاق الكاميرا (خطوة رجوع) قبل فتح أي نافذة جديدة
+                    setTimeout(() => link ? fillTransfer(link, 'تم مسح QR') : handleScanned(merchant), 250);
                     return;
                 }
-                if (result !== lastBadScan) { lastBadScan = result; toast('هذا الكود ليس كود دفع من فلو باي'); }
+                if (result !== lastBadScan) { lastBadScan = result; toast('هذا الكود ليس كود دفع معروف'); }
             }
         } catch (e) {}
     }

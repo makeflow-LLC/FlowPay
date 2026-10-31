@@ -87,7 +87,9 @@
         </button>
     </div>
 
-    <p class="choose-hint" id="chooseSvcHint">👆 اختر المحفظة أولاً</p>
+    <button class="scan-cta" onclick="startScanner()">📷 امسح كود الدفع (QR) عند التاجر</button>
+
+    <p class="choose-hint" id="chooseSvcHint">👆 اختر المحفظة أو امسح كود التاجر</p>
 
     <div class="card" id="formCard" hidden>
         <div class="input-group" id="jawwalTypeGroup" hidden>
@@ -338,6 +340,21 @@
     <p class="hint small">رح نتذكر اختيارك — تقدر تغيّره من الإعدادات</p>
     <div class="modal-btns">
         <button class="m-cancel" onclick="closeOv('ovSim')">إلغاء</button>
+    </div>
+</div></div>
+
+<!-- Scanned a plain phone number: which wallet? -->
+<div class="overlay" id="ovPickSvc"><div class="modal center">
+    <h3>📷 تم مسح الرقم</h3>
+    <p class="ltr save-phone" id="pickSvcPhone"></p>
+    <p class="hint">بأي محفظة بدك تدفع؟</p>
+    <div class="sim-list">
+        <button class="sim-btn" onclick="pickScannedSvc('palpay','1')">بال باي</button>
+        <button class="sim-btn" onclick="pickScannedSvc('jawwal','1')">جوال باي <small>لصديق</small></button>
+        <button class="sim-btn" onclick="pickScannedSvc('jawwal','2')">جوال باي <small>دفع لتاجر</small></button>
+    </div>
+    <div class="modal-btns">
+        <button class="m-cancel" onclick="closeOv('ovPickSvc')">إلغاء</button>
     </div>
 </div></div>
 
