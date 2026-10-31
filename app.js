@@ -312,9 +312,9 @@ function buildCode() {
     const full = isValidTo(phone) && isValidAmt(amount);
     const okPin = /^\d{4}$/.test(pin);
     if (tab === 'jawwal') return okPin && full ? `*110*${jawwalType}*${pin}*${phone}*${amount}*1#` : `*110*${jawwalType}#`;
-    // بال باي: بعد الرقم والمبلغ تسأل «1. تأكيد» ثم الرقم السري — نضيف الجوابين للكود
+    // بال باي: بعد الرقم والمبلغ تسأل عن الرقم السري ثم «1. تأكيد» — نضيف الجوابين للكود
     // فيتم التحويل بخطوة واحدة مثل جوال باي
-    if (tab === 'palpay') return full ? `*370*1*1*${phone}*${amount}` + (okPin ? `*1*${pin}#` : '#') : '*370*1#';
+    if (tab === 'palpay') return full ? `*370*1*1*${phone}*${amount}` + (okPin ? `*${pin}*1#` : '#') : '*370*1#';
     if (tab === 'bop') return okPin ? `*267*${pin}#` : '*267#';
     return '';
 }
@@ -364,7 +364,7 @@ function maskPin(code) {
     const pin = $('pin').value;
     if (!/^\d{4}$/.test(pin)) return code;
     // الرقم السري يأتي مباشرة بعد بادئة الكود: *110*1*PIN* أو *267*PIN#
-    if (tab === 'palpay') return code.replace(/\*\d{4}#$/, '*••••#');
+    if (tab === 'palpay') return code.replace(/\*\d{4}\*1#$/, '*••••*1#');
     return code.replace(/^(\*110\*\d\*|\*267\*)\d{4}/, '$1••••');
 }
 
@@ -377,7 +377,7 @@ function ussdSteps(code) {
         if (pin) steps.push('التحويل يتم بخطوة وحدة — استنى رسالة التأكيد من جوال باي');
         else steps.push('رح تفتح قائمة جوال باي — أدخل الرقم والمبلغ والرقم السري لما يطلبهم');
     } else if (tab === 'palpay') {
-        steps.push(pin ? 'التأكيد والرقم السري بيتعبّوا لحالهم — التحويل بخطوة وحدة' : 'رح يسألك تأكّد (اكتب 1) وبعدها الرقم السري');
+        steps.push(pin ? 'الرقم السري والتأكيد بيتعبّوا لحالهم — التحويل بخطوة وحدة' : 'رح يسألك عن الرقم السري وبعدها تأكّد (اكتب 1)');
     } else if (tab === 'bop') {
         steps.push(pin ? 'رح تدخل قائمة بنك فلسطين مباشرة — اختر نوع العملية' : 'رح يطلب الرقم السري ثم تظهر قائمة البنك');
     }
