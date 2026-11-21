@@ -823,7 +823,21 @@ async function pickFromPhone() {
 }
 
 // ===== RECEIVE: كود QR للدفع بمبلغ محدد =====
-// الكود رابط دفع عادي: يُمسح من داخل فلو باي، أو بكاميرا أي جوال فيفتح فلو باي والتحويل جاهز
+// الكود هو كود USSD جاهز (tel:) فيه رقمك والمبلغ: يُمسح بكاميرا أي جوال فيفتح المتصل والكود
+// مكتوب — لا يحتاج الدافع فلو باي. وإن مُسح من داخل فلو باي يتعبّى التحويل.
+const RCV_USSD = {
+    jawwal: (phone, amount) => `*268*1*${phone}*${amount}#`,
+    palpay: (phone, amount) => `*370*1*1*${phone}*${amount}#`
+};
+// يقرأ كود الاستلام نفسه: tel:*268*1*05..*20# أو tel:*370*1*1*05..*20#
+function parseUssdQR(str) {
+    let s = String(str || '').trim();
+    if (!/^tel:/i.test(s)) return null;
+    try { s = decodeURIComponent(s.slice(4)); } catch (e) { return null; }
+    const m = s.match(/^\*(268\*1|370\*1\*1)\*(05\d{8})\*(\d{1,6}(?:\.\d{1,2})?)#$/);
+    if (!m || !isValidAmt(m[3])) return null;
+    return { svc: m[1].startsWith('268') ? 'jawwal' : 'palpay', phone: m[2], amount: m[3], type: '1' };
+}
 let rcvSvc = 'jawwal', rcvLink = '', qrLibLoading = null;
 function loadQrLib() {
     if (window.qrcode) return Promise.resolve();
@@ -867,7 +881,7 @@ function genQR() {
     $('rcvHint').hidden = ok;
     $('rcvShare').disabled = !ok;
     if (!ok) { rcvLink = ''; return; }
-    const link = APP_URL + '?svc=' + rcvSvc + '&phone=' + phone + '&amt=' + amount;
+    const link = telHref(RCV_USSD[rcvSvc](phone, amount));
     if (link !== rcvLink) {
         rcvLink = link;
         const qr = qrcode(0, 'M');
@@ -882,8 +896,9 @@ function shareQR() {
     vib();
     const svg = $('rcvQrSvg').querySelector('svg');
     if (!svg || !rcvLink) return;
-    const amount = $('rcvAmount').value.trim(), phone = $('rcvPhone').value.trim(), link = rcvLink;
-    const text = 'ادفع لي ' + amount + ' شيكل عبر ' + SVC[rcvSvc].name + ' — امسح الكود أو افتح الرابط:';
+    const amount = $('rcvAmount').value.trim(), phone = $('rcvPhone').value.trim();
+    const code = RCV_USSD[rcvSvc](phone, amount);
+    const text = 'ادفع لي ' + amount + ' شيكل عبر ' + SVC[rcvSvc].name + ' — امسح الكود بكاميرا الجوال واضغط اتصال، أو اطلب الكود: ' + code;
     const img = new Image();
     img.onload = () => {
         const size = 720, pad = 40, foot = 150;
@@ -902,7 +917,7 @@ function shareQR() {
         ctx.fillText(amount + ' ₪ · ' + SVC[rcvSvc].name, canvas.width / 2, size + pad * 2 + 40);
         ctx.font = '38px sans-serif';
         ctx.direction = 'ltr';
-        ctx.fillText(phone, canvas.width / 2, size + pad * 2 + 100);
+        ctx.fillText(code, canvas.width / 2, size + pad * 2 + 100);
         if (Native.isNative) {
             Native.shareFile('flowpay-qr.png', canvas.toDataURL('image/png').split(',')[1], true, 'كود الدفع — فلو باي').catch(() => {});
             return;
@@ -910,9 +925,9 @@ function shareQR() {
         canvas.toBlob(blob => {
             const file = new File([blob], 'flowpay-qr.png', { type: 'image/png' });
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                navigator.share({ files: [file], title: 'كود الدفع — فلو باي', text: text + '\n' + link }).catch(() => {});
+                navigator.share({ files: [file], title: 'كود الدفع — فلو باي', text }).catch(() => {});
             } else if (navigator.share) {
-                navigator.share({ title: 'كود الدفع — فلو باي', text, url: link }).catch(() => {});
+                navigator.share({ title: 'كود الدفع — فلو باي', text }).catch(() => {});
             } else {
                 downloadBlob(blob, 'flowpay-qr.png');
                 toast('تم تنزيل صورة الكود');
@@ -1396,7 +1411,7 @@ async function scanTick() {
 
 // رابط دفع فلو باي، أو لافتة تاجر (معيار سلطة النقد)، أو رقم جوال فقط
 function useScanResult(result) {
-    const link = parsePayload(result);
+    const link = parseUssdQR(result) || parsePayload(result);
     const merchant = link ? null : parseMerchantQR(result);
     if (!link && !merchant) return false;
     vib(50);
