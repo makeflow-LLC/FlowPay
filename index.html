@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
     <meta name="theme-color" content="#0b1c2b">
     <meta name="color-scheme" content="dark">
     <meta name="mobile-web-app-capable" content="yes">
@@ -61,11 +61,18 @@
     <div class="section active" id="sendSection">
 
     <div class="pending-card" id="pendingCard" hidden>
-        <div class="pending-info"><b>⏳ خلّصت التحويل؟</b><span id="pendingText"></span></div>
+        <div class="pending-info"><b>شو صار بالتحويل؟</b><span id="pendingText"></span></div>
         <div class="pending-btns">
             <button class="p-yes" onclick="setStatus('نجح')">✓ تم</button>
             <button class="p-no" onclick="setStatus('فشل')">✕ ما تم</button>
+            <button class="p-skip" onclick="setStatus('')" aria-label="تجاهل">×</button>
         </div>
+    </div>
+
+    <!-- تحويل سريع: آخر من حوّلت لهم، بأي محفظة — ضغطة وحدة تجهّز كل شيء -->
+    <div id="quickWrap" hidden>
+        <div class="step-title">⚡ تحويل سريع</div>
+        <div class="recent" id="recentBar"></div>
     </div>
 
     <div class="step-title">اختر المحفظة</div>
@@ -100,30 +107,29 @@
         <div class="input-group" id="phoneGroup">
             <div class="label-row">
                 <label for="phone" id="phoneLabel">رقم المحوّل إليه</label>
-                <button class="link-btn" id="beneficiariesToggle" onclick="toggleBeneficiaries()" aria-expanded="false">👥 المحفوظين</button>
+                <span class="label-links">
+                    <button class="link-btn" id="pasteBtn" onclick="pastePhone()" hidden>📋 لصق</button>
+                    <button class="link-btn" id="beneficiariesToggle" onclick="toggleBeneficiaries()" aria-expanded="false">👥 المحفوظين</button>
+                </span>
             </div>
             <div class="input-wrap">
-                <input type="tel" id="phone" class="has-icon" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" autocomplete="off" oninput="onPhoneInput()">
+                <input type="tel" id="phone" class="has-icon" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" enterkeyhint="next" autocomplete="off" oninput="onPhoneInput()">
                 <button class="toggle-btn" id="pickContactBtn" onclick="pickFromPhone()" aria-label="اختر من جهات الاتصال" hidden>📇</button>
             </div>
             <div class="error-msg" id="phoneErr">يجب أن يبدأ بـ 05 ويكون 10 أرقام</div>
+            <div class="phone-suggest" id="phoneSuggest" hidden></div>
+            <button class="link-btn save-num" id="saveNumBtn" onclick="saveCurrentNumber()" hidden>＋ احفظ هذا الرقم باسم</button>
             <div class="beneficiaries-panel" id="beneficiariesPanel">
                 <div class="card-title">المستفيدون المحفوظون <button onclick="showAddContact()">+ إضافة</button></div>
                 <div id="contactsBar"></div>
             </div>
-            <div class="recent" id="recentBar" hidden></div>
         </div>
 
         <div class="input-group" id="amountGroup">
             <label for="amount">المبلغ (شيكل)</label>
-            <div class="amounts" id="sendAmounts">
-                <button class="amt-btn" onclick="setAmt(5,this)">5</button>
-                <button class="amt-btn" onclick="setAmt(10,this)">10</button>
-                <button class="amt-btn" onclick="setAmt(20,this)">20</button>
-                <button class="amt-btn" onclick="setAmt(50,this)">50</button>
-            </div>
+            <div class="amounts" id="sendAmounts"></div>
             <div class="input-wrap">
-                <input type="text" id="amount" placeholder="أو اكتب مبلغ آخر" inputmode="decimal" autocomplete="off" oninput="onAmountInput()">
+                <input type="text" id="amount" placeholder="أو اكتب مبلغ آخر" inputmode="decimal" enterkeyhint="next" autocomplete="off" oninput="onAmountInput()">
                 <span class="unit">₪</span>
             </div>
             <div class="error-msg warn" id="amountWarn">⚠️ مبلغ كبير — تأكد جيداً قبل التحويل</div>
@@ -132,7 +138,7 @@
         <div class="input-group" id="pinGroup">
             <label for="pin" id="pinLabel">الرقم السري المكون من 4 أرقام <span class="optional">(اختياري)</span></label>
             <div class="input-wrap">
-                <input type="password" id="pin" placeholder="يسرّع التحويل بخطوة وحدة" inputmode="numeric" maxlength="4" autocomplete="off" oninput="onPinInput()">
+                <input type="password" id="pin" placeholder="يسرّع التحويل بخطوة وحدة" inputmode="numeric" enterkeyhint="done" maxlength="4" autocomplete="off" oninput="onPinInput()">
                 <button class="toggle-btn" onclick="togglePin(this)" aria-label="إظهار الرقم السري">👁️</button>
             </div>
             <p class="hint small">🔒 بيسرّع التحويل لخطوة وحدة — لا يُحفظ ولا يُرسل لأحد</p>
@@ -144,6 +150,11 @@
     <div class="action-bar" id="actionBar" hidden>
         <button id="callBtn" class="btn-main" onclick="confirmCall()" disabled>📞 حوّل الآن</button>
     </div>
+
+    <button class="receive-cta" onclick="showReceive()">
+        <span class="scan-ico">📥</span>
+        <span><b>بدك تستلم؟ اعمل كود QR</b><small>بالمبلغ اللي بدك ياه — اللي يمسحه بيتجهّزله التحويل</small></span>
+    </button>
 
     <div class="footer-links">
         <button onclick="shareApp()">📤 شارك التطبيق</button>
@@ -166,12 +177,13 @@
                 <div class="legend-list" id="pieLegend"></div>
             </div>
             <div class="analytics-stats">
-                <div class="stat-item"><span class="stat-label">إجمالي الناجحة</span><span class="stat-value" id="statTotal">0 ₪</span></div>
-                <div class="stat-item"><span class="stat-label">عدد الناجحة</span><span class="stat-value" id="statSuccess">0</span></div>
+                <div class="stat-item"><span class="stat-label">إجمالي التحويلات</span><span class="stat-value" id="statTotal">0 ₪</span></div>
+                <div class="stat-item"><span class="stat-label">عدد التحويلات</span><span class="stat-value" id="statSuccess">0</span></div>
                 <div class="stat-item"><span class="stat-label">أكثر خدمة</span><span class="stat-value" id="statTop">-</span></div>
                 <div class="stat-item"><span class="stat-label">أكثر مستفيد</span><span class="stat-value" id="statTopContact">-</span></div>
             </div>
         </div>
+        <p class="analytics-note">تُحسب كل الحركات ما عدا اللي علّمتها «فشل». فلو باي ما بيعرف نتيجة التحويل — علّم الحركة بنفسك من القائمة تحت.</p>
     </div>
 
     <input class="hist-search" type="search" placeholder="بحث بالرقم أو الاسم..." oninput="filterHist()" id="histSearch">
@@ -182,6 +194,7 @@
         <button class="hist-filter" data-f="bop" onclick="setHistFilter('bop')">بنك فلسطين</button>
         <button class="hist-filter" data-f="success" onclick="setHistFilter('success')">ناجح</button>
         <button class="hist-filter" data-f="failed" onclick="setHistFilter('failed')">فاشل</button>
+        <button class="hist-filter" data-f="unknown" onclick="setHistFilter('unknown')">غير مؤكد</button>
     </div>
     <div class="hist-full" id="histFull"></div>
 </div>
@@ -200,8 +213,32 @@
     <video id="scanVideo" playsinline autoplay muted></video>
     <div class="scanner-guide"></div>
     <div class="scanner-hint">وجّه الكاميرا نحو QR</div>
+    <button class="scanner-file" onclick="$('scanFile').click()">🖼️ من صورة</button>
+    <input type="file" id="scanFile" accept="image/*" hidden onchange="scanImageFile(event)">
     <button class="scanner-close" onclick="closeOv('scannerWrap')" aria-label="إغلاق">✕</button>
 </div>
+
+<!-- Receive: payment QR for an amount -->
+<div class="overlay" id="ovReceive"><div class="modal wide">
+    <h3>📥 كود QR للاستلام</h3>
+    <div class="transfer-type" id="rcvSvc">
+        <button type="button" data-svc="jawwal" onclick="setRcvSvc('jawwal')">جوال باي</button>
+        <button type="button" data-svc="palpay" onclick="setRcvSvc('palpay')">بال باي</button>
+    </div>
+    <label class="field-caption" for="rcvPhone">رقم محفظتك</label>
+    <input type="tel" id="rcvPhone" class="ltr" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" enterkeyhint="next" autocomplete="off" oninput="onRcvInput()">
+    <label class="field-caption" for="rcvAmount">المبلغ (شيكل)</label>
+    <input type="text" id="rcvAmount" class="ltr" placeholder="0" inputmode="decimal" enterkeyhint="done" autocomplete="off" oninput="onRcvInput()">
+    <div class="qr-box" id="rcvQr" hidden>
+        <div id="rcvQrSvg"></div>
+        <p id="rcvQrInfo"></p>
+    </div>
+    <p class="hint center" id="rcvHint">اكتب رقمك والمبلغ ليظهر الكود</p>
+    <div class="modal-btns">
+        <button class="m-primary" id="rcvShare" onclick="shareQR()" disabled>📤 شارك الكود</button>
+        <button class="m-cancel" onclick="closeOv('ovReceive')">إغلاق</button>
+    </div>
+</div></div>
 
 <!-- Confirm -->
 <div class="overlay" id="ovConfirm"><div class="modal">
@@ -216,25 +253,14 @@
 <!-- Add / Edit Contact -->
 <div class="overlay" id="ovContact"><div class="modal">
     <h3 id="contactTitle">إضافة مستفيد</h3>
-    <input type="text" id="cName" placeholder="الاسم" maxlength="40" autocomplete="off">
-    <input type="tel" id="cPhone" class="ltr" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" oninput="valCPhone()">
+    <input type="text" id="cName" placeholder="الاسم" maxlength="40" enterkeyhint="next" autocomplete="off">
+    <input type="tel" id="cPhone" class="ltr" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" enterkeyhint="done" autocomplete="off" oninput="valCPhone()">
     <div class="error-msg" id="cPhoneErr">يجب أن يبدأ بـ 05 ويكون 10 أرقام</div>
     <div class="field-caption">النوع:</div>
     <div class="cats" id="catsGrid"></div>
     <div class="modal-btns">
         <button class="m-primary" onclick="saveContact()">حفظ</button>
         <button class="m-cancel" onclick="closeOv('ovContact')">إلغاء</button>
-    </div>
-</div></div>
-
-<!-- Save Beneficiary Prompt -->
-<div class="overlay" id="ovSave"><div class="modal center">
-    <h3>حفظ المستفيد؟</h3>
-    <p class="ltr save-phone" id="savePhone"></p>
-    <p class="hint">هل تريد حفظه للتحويلات القادمة؟</p>
-    <div class="modal-btns">
-        <button class="m-primary" onclick="acceptSave()">نعم، احفظه</button>
-        <button class="m-cancel" onclick="closeOv('ovSave')">لا</button>
     </div>
 </div></div>
 
@@ -248,16 +274,15 @@
     </div>
 </div></div>
 
-<!-- Transfer Status -->
-<div class="overlay" id="ovStatus"><div class="modal center">
-    <h3 class="ok" id="statusTitle">✓ تم التحويل؟</h3>
-    <p class="ussd-msg" id="statusMsg" hidden></p>
-    <p class="hint" id="statusHint">سُجّل كتحويل ناجح. لو ما اشتغل اضغط "لم يتم"</p>
+<!-- Wallet reply to an in-app USSD request: shown verbatim, the app never judges the outcome -->
+<div class="overlay" id="ovReply"><div class="modal center">
+    <h3 id="replyTitle">📩 رد المحفظة</h3>
+    <p class="ussd-msg" id="replyMsg" hidden></p>
+    <p class="hint" id="replyHint"></p>
     <div class="modal-btns">
-        <button class="m-primary" onclick="setStatus('نجح')">تمام 👍</button>
-        <button class="m-cancel danger" onclick="setStatus('فشل')">لم يتم ❌</button>
+        <button class="m-primary" onclick="closeOv('ovReply')">تمام</button>
     </div>
-    <button class="settings-btn retry-btn" id="statusRetry" onclick="retryByCall()" hidden>📞 كمّل عبر الاتصال</button>
+    <button class="settings-btn retry-btn" id="replyRetry" onclick="retryByCall()" hidden>📞 كمّل عبر الاتصال</button>
 </div></div>
 
 <!-- SIM choice (dual-SIM phones, Android app) -->
@@ -289,7 +314,7 @@
 <!-- In-app USSD running -->
 <div class="overlay" id="ovBusy"><div class="modal center">
     <div class="spinner"></div>
-    <h3>جارٍ تنفيذ التحويل…</h3>
+    <h3>جارٍ إرسال الطلب…</h3>
     <p class="hint">لا تغلق التطبيق — ننتظر رد الشبكة</p>
 </div></div>
 
@@ -330,6 +355,16 @@
                 <li><span class="hs-num">3</span><span>اكتب رقم المستلم والمبلغ</span></li>
                 <li><span class="hs-num">4</span><span>الرقم السري اختياري — يسرّع التحويل</span></li>
                 <li><span class="hs-num">5</span><span>اضغط "حوّل الآن" وراجع التفاصيل قبل الاتصال</span></li>
+                <li><span class="hs-num">⚡</span><span>للمرة الجاية: اضغط الاسم في «تحويل سريع» وكل شي بيتعبّى لحاله</span></li>
+                <li><span class="hs-num">📋</span><span>نسخت رقم من واتساب؟ اضغط «لصق» وبنطلّع الرقم من النص</span></li>
+            </ul>
+        </div>
+        <div class="help-section">
+            <h4>❔ كيف أعرف إنه التحويل تم؟</h4>
+            <ul class="help-steps">
+                <li><span class="hs-num">1</span><span>من <strong>رسالة المحفظة (SMS)</strong> أو رصيدك — هذا المرجع الوحيد</span></li>
+                <li><span class="hs-num">2</span><span>فلو باي بيجهّز الكود وبيتصل فقط، وما بيعرف إذا التحويل تم أو لأ</span></li>
+                <li><span class="hs-num">3</span><span>إذا ما وصلتك رسالة، افحص رصيدك قبل ما تعيد التحويل</span></li>
             </ul>
         </div>
         <div class="help-section">
@@ -337,6 +372,7 @@
             <ul class="help-steps">
                 <li><span class="hs-num">1</span><span>اضغط "السجل" من الشريط السفلي</span></li>
                 <li><span class="hs-num">2</span><span>فلتر حسب المحفظة أو ابحث بالرقم أو الاسم</span></li>
+                <li><span class="hs-num">3</span><span>كل حركة بتنحفظ «غير مؤكد» — علّمها «نجح» أو «فشل» بنفسك إذا بدك</span></li>
             </ul>
         </div>
     </div>
@@ -403,7 +439,7 @@
         <p>2️⃣ اكتب رقم الشخص والمبلغ</p>
         <p>3️⃣ اضغط "حوّل الآن" — وخلص! 🎉</p>
     </div>
-    <p class="hint small">التطبيق لا يلمس فلوسك — بس يجهّز المكالمة</p>
+    <p class="hint small">التطبيق لا يلمس فلوسك — بس يجهّز المكالمة. تأكيد التحويل دايمًا من رسالة المحفظة</p>
     <div class="modal-btns">
         <button class="m-primary" onclick="closeOnboard()">يلا نبدأ!</button>
     </div>

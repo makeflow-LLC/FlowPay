@@ -173,8 +173,13 @@ function hideOv(id) {
     $(id).classList.remove('show');
     if (id === 'scannerWrap') stopScanner();
     if (id === 'ovSim' && simResolve) { const r = simResolve; simResolve = null; r(null); }
-    // الرجوع من نافذة «تم التحويل؟» = تبقى الحركة ناجحة ولا نسأل مرة أخرى
-    if (id === 'ovStatus') { session.set('fp_pending', ''); session.set('fp_pending_phone', ''); $('pendingCard').hidden = true; }
+    // إغلاق رد المحفظة لا يغيّر شيئًا في السجل — تبقى الحركة «غير مؤكد» حتى يعلّمها المستخدم
+    if (id === 'ovReply') retry = null;
+    showPending();
+}
+// يفتح نافذة مكان أخرى إن كانت ظاهرة، وإلا يفتحها عادي (المستخدم قد يكون أغلق الأولى بزر الرجوع)
+function showOver(from, to) {
+    if (from && $(from).classList.contains('show')) swapOv(from, to); else openOv(to);
 }
 // نافذة تفتح مكان أخرى دون خطوة رجوع إضافية
 function swapOv(from, to) {
@@ -239,10 +244,79 @@ function selectService(svc) {
     updateTypeUI();
     $('pinLabel').innerHTML = esc(SVC[svc].pinTitle) + ' <span class="optional">(اختياري)</span>';
     $('pin').placeholder = SVC[svc].pinPh;
+    store.set('fp_last_svc', svc);   // المرة الجاية يفتح التطبيق على نفس المحفظة
+    $('pasteBtn').hidden = !canPaste;
+    renderAmounts();
     renderRecent();
     gen();
 }
 function switchTab(t) { vib(); selectService(t); }
+
+// أزرار المبالغ: المبالغ التي تحوّلها كثيرًا بهذه المحفظة أولاً، والباقي من الافتراضي
+function renderAmounts() {
+    const count = {};
+    hist.forEach(h => {
+        if (h.service === (SVC[tab] && SVC[tab].name) && h.status !== 'فشل' && isValidAmt(h.amount)) count[h.amount] = (count[h.amount] || 0) + 1;
+    });
+    const picks = Object.keys(count).filter(a => count[a] >= 2).sort((a, b) => count[b] - count[a]).slice(0, 4);
+    for (const d of ['5', '10', '20', '50']) if (picks.length < 4 && !picks.some(p => parseFloat(p) === parseFloat(d))) picks.push(d);
+    picks.sort((a, b) => parseFloat(a) - parseFloat(b));
+    const cur = $('amount').value;
+    $('sendAmounts').innerHTML = picks.map(a => `<button class="amt-btn${a === cur ? ' sel' : ''}" onclick="setAmt('${esc(a)}',this)">${esc(a)}</button>`).join('');
+}
+
+// اقتراحات أثناء كتابة الرقم: من المحفوظين ومن الأرقام التي حوّلت لها سابقًا
+function renderSuggest() {
+    const box = $('phoneSuggest');
+    const v = $('phone').value.trim();
+    let html = '';
+    if (tab && tab !== 'bop' && !isMerchant()) {
+        if (isValidPh(v)) {
+            const c = contacts.find(c => c.phone === v);
+            if (c) html = `<span class="phone-known">✓ ${esc(c.name)}</span>`;
+        } else if (v.length >= 3) {
+            const seen = new Set(), out = [];
+            const add = (phone, name) => { if (out.length < 4 && isValidPh(phone) && phone.includes(v) && !seen.has(phone)) { seen.add(phone); out.push([phone, name]); } };
+            contacts.forEach(c => add(c.phone, c.name));
+            hist.forEach(h => add(h.phone, ''));
+            html = out.map(([p, n]) => `<button class="suggest-item" onclick="pickSuggest('${p}')"><b>${esc(n || p)}</b>${n ? '<small>' + p + '</small>' : ''}</button>`).join('');
+        }
+    }
+    box.innerHTML = html;
+    box.hidden = !html;
+}
+function pickSuggest(phone) {
+    vib();
+    const c = contacts.find(c => c.phone === phone);
+    $('phone').value = phone;
+    $('phoneErr').classList.remove('show');
+    $('phone').classList.remove('error');
+    if (c && c.lastAmount && !$('amount').value) { $('amount').value = c.lastAmount; renderAmounts(); }
+    gen();
+    if (!$('amount').value) $('amount').focus(); else $('phone').blur();
+}
+
+// لصق رقم منسوخ (من واتساب مثلاً): نلتقط أول رقم جوال صالح من النص مهما كان حوله
+function extractPhone(text) {
+    const t = toDigits(text);
+    for (const m of t.match(/[+\d][\d\s\-()]{6,20}/g) || []) {
+        const p = normalizePhone(m);
+        if (isMerchant() ? /^\d{4,12}$/.test(p) : isValidPh(p)) return p;
+    }
+    return '';
+}
+const canPaste = !!(Native.paste || (navigator.clipboard && navigator.clipboard.readText));
+function pastePhone() {
+    vib();
+    (Native.paste ? Native.paste() : navigator.clipboard.readText()).then(text => {
+        const p = extractPhone(text);
+        if (!p) { toast(isMerchant() ? 'ما في رقم تاجر في الحافظة' : 'ما في رقم جوال في الحافظة'); return; }
+        $('phone').value = p;
+        onPhoneInput();
+        toast('تم لصق ' + (contactName(p) || p));
+        if (!$('amount').value) $('amount').focus();
+    }).catch(() => toast('تعذّر قراءة الحافظة — الصق الرقم يدويًا'));
+}
 
 function setJawwalType(type) { vib(); jawwalType = type; updateTypeUI(); onPhoneInput(); }
 function updateTypeUI() {
@@ -250,29 +324,24 @@ function updateTypeUI() {
     $('phoneLabel').textContent = tab === 'jawwal' ? (jawwalType === '2' ? 'رقم التاجر' : 'رقم الصديق') : 'رقم المحوّل إليه';
 }
 
-// آخر من حوّلت لهم بهذه المحفظة: ضغطة وحدة تعبّي الرقم والمبلغ
+// تحويل سريع: آخر من حوّلت لهم بأي محفظة — ضغطة وحدة تختار المحفظة وتعبّي الرقم والمبلغ
 function renderRecent() {
-    const bar = $('recentBar');
     const seen = new Set(), items = [];
     for (const h of hist) {
-        if (items.length >= 5) break;
-        if (h.service !== (SVC[tab] && SVC[tab].name) || !isValidPh(h.phone) || seen.has(h.phone) || h.status === 'فشل') continue;
-        seen.add(h.phone);
-        items.push(h);
+        if (items.length >= 6) break;
+        const k = svcKey(h.service), merchant = h.transferType === 'تاجر';
+        if (!k || k === 'bop' || h.status === 'فشل' || !isValidAmt(h.amount)) continue;
+        if (merchant ? !/^\d{4,12}$/.test(h.phone) : !isValidPh(h.phone)) continue;
+        const key = k + h.phone;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push({ k, h, type: merchant ? '2' : '1' });
     }
-    bar.hidden = !items.length || tab === 'bop';
-    bar.innerHTML = items.map(h => {
+    $('quickWrap').hidden = !items.length;
+    $('recentBar').innerHTML = items.map(({ k, h, type }) => {
         const name = contactName(h.phone);
-        return `<button class="recent-chip" onclick="useRecent('${h.phone}','${esc(isValidAmt(h.amount) ? h.amount : '')}')"><b>${esc(name || h.phone)}</b><small>${name ? esc(h.phone.slice(-4)) + ' · ' : ''}${esc(h.amount || '')} ₪</small></button>`;
+        return `<button class="recent-chip" data-svc="${k}" onclick="repeatTransfer('${k}','${esc(h.phone)}','${esc(h.amount)}','${type}')"><b>${esc(name || h.phone)}</b><small>${esc(h.amount)} ₪ · ${esc(h.service)}</small></button>`;
     }).join('');
-}
-function useRecent(phone, amount) {
-    vib();
-    $('phone').value = phone;
-    $('phoneErr').classList.remove('show');
-    $('phone').classList.remove('error');
-    if (amount) { $('amount').value = amount; clearAmtBtns('sendAmounts'); }
-    gen();
 }
 
 function onPhoneInput() {
@@ -334,6 +403,15 @@ function gen() {
     else if (ready) label = (CAN_DIAL ? '📞 حوّل ' : '📋 جهّز ') + amount + ' ₪ لـ ' + (contactName(phone) || phone);
     $('callBtn').textContent = label;
     $('amountWarn').classList.toggle('show', tab !== 'bop' && parseFloat(amount) > threshold());
+    // رقم جديد صحيح؟ نعرض حفظه هنا — بلا علاقة بنتيجة أي تحويل
+    renderSuggest();
+    $('saveNumBtn').hidden = !(tab && tab !== 'bop' && !isMerchant() && isValidPh(phone) && !contacts.some(c => c.phone === phone));
+}
+function saveCurrentNumber() {
+    vib();
+    const ph = $('phone').value.trim();
+    fillContactForm(-1, { phone: ph, name: scanNames[ph] || '' }, 'حفظ المستفيد');
+    openOv('ovContact');
 }
 
 function confirmCall() {
@@ -375,8 +453,8 @@ function ussdSteps(code) {
     const steps = [];
     if (!CAN_DIAL) steps.push('رح ننسخ الكود — الصقه في تطبيق الهاتف واضغط اتصال');
     if (tab === 'jawwal') {
-        if (pin) steps.push('التحويل يتم بخطوة وحدة — استنى رسالة التأكيد من جوال باي');
-        else steps.push('رح تفتح قائمة جوال باي — أدخل الرقم والمبلغ والرقم السري لما يطلبهم');
+        if (pin) steps.push('الكود كامل بخطوة وحدة — التأكيد برسالة جوال باي (SMS)');
+        else steps.push('رح تفتح قائمة جوال باي — رقم المستلم منسوخ جاهز للصق، وبعده المبلغ والرقم السري');
     } else if (tab === 'palpay') {
         steps.push(pin ? 'لما يطلب الرقم السري: اضغط مطوّلاً ← لصق (منسوخ جاهز) ← Send' : 'لما يطلب الرقم السري: اكتبه ← Send');
         steps.push('بعدها بيطلع اسم المستلم: اكتب 1 للتأكيد ← Send');
@@ -384,6 +462,7 @@ function ussdSteps(code) {
         steps.push(pin ? 'رح تدخل قائمة بنك فلسطين مباشرة — اختر نوع العملية' : 'رح يطلب الرقم السري ثم تظهر قائمة البنك');
     }
     if (Native.ussd && !store.get('fp_call_ok')) steps.push('أول مرة: اسمح لفلو باي بإجراء المكالمات حتى يتصل مباشرة');
+    if (tab !== 'bop') steps.push('فلو باي ما بيعرف نتيجة التحويل — المرجع رسالة المحفظة');
     return steps;
 }
 
@@ -422,21 +501,40 @@ function resetSims() {
     toast('رح نسألك عن الشريحة في التحويل الجاي');
 }
 
+// ضغطتان سريعتان على «حوّل» = تحويلان. نقفل الزر حتى ينتهي الأول
+let calling = false;
 async function proceedCall() {
+    if (calling) return;
+    calling = true;
+    try { await startTransfer(); } finally { setTimeout(() => { calling = false; }, 1200); }
+}
+
+function withTimeout(promise, ms, fallback) {
+    return new Promise((resolve, reject) => {
+        const t = setTimeout(() => resolve(fallback), ms);
+        promise.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+    });
+}
+function telHref(code) { return 'tel:' + code.replace(/#/g, '%23'); }
+
+async function startTransfer() {
     vib(40);
     if (!isReady()) { closeOv('ovConfirm'); return; }
+    const svc = tab, type = jawwalType;
     const code = buildCode();
+    const { phone, amount, pin } = formValues();
     let simId = -1;
     if (Native.ussd) {
-        simId = await chooseSim(tab);
+        simId = await chooseSim(svc);
         if (simId === null) return;   // ألغى اختيار الشريحة
     }
-    const { phone, amount, pin } = formValues();
-    const bop = tab === 'bop';
+    const bop = svc === 'bop';
+    // السجل يحفظ «محاولة» بلا حالة: التطبيق لا يعرف نتيجة التحويل ولا يفترضها.
+    // الحالة (نجح/فشل) يضعها المستخدم فقط، إن أراد.
     const entry = {
-        id: newId(), service: SVC[tab].name, phone: bop ? '' : phone, amount: bop ? '' : amount,
-        transferType: tab === 'jawwal' ? (jawwalType === '2' ? 'تاجر' : 'صديق') : '',
-        ts: Date.now(), status: 'نجح'
+        id: newId(), service: SVC[svc].name, phone: bop ? '' : phone, amount: bop ? '' : amount,
+        transferType: svc === 'jawwal' ? (type === '2' ? 'تاجر' : 'صديق') : '',
+        ts: Date.now(), status: ''
     };
     hist.unshift(entry);
     if (hist.length > histLimit()) hist.length = histLimit();
@@ -444,132 +542,143 @@ async function proceedCall() {
     const ci = contacts.findIndex(c => c.phone === phone);
     if (ci >= 0 && amount && !bop) { contacts[ci].lastAmount = amount; saveContacts(); }
 
-    // نتذكر الحركة المعلّقة حتى لو أغلق النظام الصفحة أثناء المكالمة
-    session.set('fp_pending', entry.id);
-    session.set('fp_pending_phone', !bop && ci < 0 ? phone : '');
-    const open = document.querySelector('.overlay.show');
+    // نتذكر آخر محاولة (حتى لو أغلق النظام الصفحة أثناء المكالمة) لنعرض تعليمها — اختياريًا
+    session.set('fp_pending', bop ? '' : entry.id);
+    $('pendingCard').hidden = true;
     // الكود الكامل (يتم بخطوة واحدة) موجود لجوال باي فقط
-    const fullCode = tab === 'jawwal' && /^\d{4}$/.test(pin) && isValidTo(phone);
-    // إن لم يكتمل التنفيذ داخل التطبيق نكمّل بالاتصال العادي (الرقم السري يُنسخ للصق)
-    retry = fullCode ? { code: `*110*${jawwalType}#`, pin, simId } : null;
+    const fullCode = svc === 'jawwal' && /^\d{4}$/.test(pin) && isValidTo(phone);
+    retry = null;
 
     // الرقم السري لا يبقى في الحقل بعد استخدامه
     $('pin').value = '';
     $('pin').type = 'password';
     renderRecent();
+    gen();
+
+    const shown = () => { const o = document.querySelector('.overlay.show'); return o ? o.id : ''; };
 
     if (!CAN_DIAL) {
         iosCode = code;
         copyText(code).catch(() => {});
         $('iosCode').textContent = code;
-        if (open) swapOv(open.id, 'ovIos'); else openOv('ovIos');
+        showOver(shown(), 'ovIos');
         return;
     }
 
-    // تنفيذ داخل التطبيق: الكود الكامل فقط (مع الرقم السري). الشبكة ترد برسالة واحدة
-    // وتنتهي الجلسة — فإن ردّت بقائمة أو سؤال فالتحويل لم يتم، ولا تتحرك أي أموال.
+    // تنفيذ داخل التطبيق: الكود الكامل فقط (مع الرقم السري). الشبكة ترد برسالة واحدة وتنتهي
+    // الجلسة. نعرض ردها كما هو — ولا نحكم نحن إن تم التحويل أم لا.
     if (Native.ussd && fullCode && store.get('fp_inapp') !== '0') {
-        if (open) swapOv(open.id, 'ovBusy'); else openOv('ovBusy');
-        let res;
-        try { res = await Native.ussd.send(code, simId); } catch (e) { res = { ok: false }; }
-        const msg = res.ok && res.message ? res.message.trim() : '';
-        // رد بقائمة/سؤال أو برسالة خطأ = التحويل لم يتم ولم تتحرك أي أموال
-        const failed = /invalid|error|fail|denied|reject|wrong|خطأ|خاطئ|غير صحيح|غير صالح|فشل|رفض|مرفوض|تعذر|لا يمكن|غير كاف/i.test(msg);
-        const incomplete = !msg || failed || /(^|\n)\s*\d\s*[.)\-]|أدخل|ادخل/.test(msg);
-        if (failed) {
-            const h = hist.find(h => h.id === session.get('fp_pending'));
-            if (h) { h.status = 'فشل'; saveHist(); }
+        showOver(shown(), 'ovBusy');
+        let res = null;
+        try {
+            res = await withTimeout(Native.ussd.send(code, simId), 60000, { ok: false, timeout: true });
+        } catch (e) {
+            res = null;   // رُفض الإذن أو الجهاز لا يدعم = لم يُرسل شيء، نكمّل بالاتصال العادي تحت
         }
-        $('statusMsg').hidden = false;
-        $('statusMsg').textContent = msg
-            ? msg + (incomplete ? '\n\n⚠️ التحويل ما تم — ما انخصم شي. بتقدر تكمّله بالاتصال تحت.' : '')
-            : '⚠️ ما وصل رد من الشبكة. افحص رسائل المحفظة قبل ما تعيد — لا تكرر التحويل قبل ما تتأكد.';
-        $('statusRetry').hidden = !incomplete || !retry;
-        setStatusLook(failed);
-        swapOv('ovBusy', 'ovStatus');
-        return;
+        if (res) {
+            // إن ردّت الشبكة بسؤال/قائمة يمكن إكمالها بالاتصال العادي (الرقم السري يُنسخ للصق)
+            retry = { code: `*110*${type}#`, pin, simId };
+            showReply(res, svc);
+            return;
+        }
     }
-    retry = null;
 
-    if (open) closeOv(open.id);
-    if (tab === 'palpay' && pin) {
-        copyText(pin).then(() => toast('تم نسخ الرقم السري — الصقه عند الطلب'), () => {});
-    } else if (!pin && tab !== 'palpay') {
-        toast('ستمر بعدة خطوات يدوية');
+    dialing = true;   // من الآن حتى تبدأ المكالمة: لا شريط «شو صار؟»
+    const open = shown();
+    if (open) closeOv(open);
+    if (svc === 'palpay' && pin) {
+        copySecret(pin).then(() => toast('تم نسخ الرقم السري — الصقه عند الطلب'), () => {});
+    } else if (svc === 'jawwal' && !fullCode) {
+        copyText(phone).then(() => toast('رقم المستلم منسوخ — الصقه لما تطلبه القائمة'), () => toast('ستمر بعدة خطوات يدوية'));
     }
-    setTimeout(() => {
-        if (Native.ussd) {
-            // نافذة إذن الاتصال قد تُخفي الصفحة لحظة — لا نسأل «تم التحويل؟» قبل أن تبدأ المكالمة
-            dialing = true;
-            Native.ussd.dial(code, simId).then(r => {
-                if (r && r.mode === 'call') store.set('fp_call_ok', '1');
-                if (r && r.mode === 'dialer') toast('اضغط زر الاتصال في المتصل');
-            }).catch(() => { location.href = 'tel:' + code.replace(/#/g, '%23'); })
-              .finally(() => setTimeout(() => { dialing = false; maybeShowStatus(); }, 1500));
-        } else {
-            location.href = 'tel:' + code.replace(/#/g, '%23');
-        }
-    }, tab === 'palpay' ? 700 : 120);
+    setTimeout(() => dialCode(code, simId), svc === 'palpay' ? 700 : 120);
+}
+
+// اتصال بالكود. نافذة إذن الاتصال قد تُخفي الصفحة لحظة، فلا نعرض شريط «شو صار؟» قبل أن تبدأ المكالمة
+function dialCode(code, simId) {
+    dialing = true;
+    const done = () => setTimeout(() => { dialing = false; showPending(); }, 1500);
+    if (!Native.ussd) { location.href = telHref(code); done(); return; }
+    Native.ussd.dial(code, simId).then(r => {
+        if (r && r.mode === 'call') store.set('fp_call_ok', '1');
+        if (r && r.mode === 'dialer') toast('اضغط زر الاتصال في المتصل');
+    }).catch(() => { location.href = telHref(code); }).finally(done);
 }
 
 let dialing = false, retry = null;
-function setStatusLook(failed) {
-    $('statusTitle').textContent = failed ? '❌ لم يتم التحويل' : '✓ تم التحويل؟';
-    $('statusTitle').className = failed ? 'danger' : 'ok';
-    $('statusHint').textContent = failed ? 'سُجّل كتحويل فاشل في السجل.' : 'سُجّل كتحويل ناجح. لو ما اشتغل اضغط "لم يتم"';
+
+// رد الشبكة على التنفيذ داخل التطبيق: يُعرض حرفيًا. لا عنوان «تم» ولا «فشل» من عندنا،
+// ولا تتغير حالة الحركة في السجل — المرجع رسالة المحفظة نفسها.
+function showReply(res, svc) {
+    const msg = res && res.ok && res.message ? String(res.message).trim() : '';
+    // سؤال أو قائمة مرقّمة = الجلسة تنتظر ردًا لا نستطيع إرساله من هنا
+    const needsInput = !!msg && /(^|\n)\s*\d{1,2}\s*[.)\-:]\s*\D|أدخل|ادخل|اختر|enter|select|choose/i.test(msg);
+    $('replyTitle').textContent = msg ? '📩 رد ' + SVC[svc].name : '⚠️ ما وصل رد من الشبكة';
+    $('replyMsg').hidden = !msg;
+    $('replyMsg').textContent = msg;
+    $('replyHint').textContent = !msg
+        ? 'ما قدرنا نقرأ رد الشبكة، وما بنعرف إذا التحويل تم أو لأ. افحص رسائل المحفظة أو رصيدك قبل ما تعيد — حتى ما يتكرر التحويل.'
+        : needsInput
+            ? 'الشبكة ردّت بسؤال أو قائمة، والتطبيق ما بيقدر يرد عليها من هنا. إذا بدك، كمّل عبر الاتصال العادي.'
+            : 'هذا رد المحفظة كما وصل. فلو باي ما بيحكم إذا تم التحويل — المرجع رسالة المحفظة (SMS) أو رصيدك.';
+    if (!needsInput) retry = null;
+    $('replyRetry').hidden = !retry;
+    showOver('ovBusy', 'ovReply');
 }
-// كمّل بالاتصال العادي بعد تنفيذ داخل التطبيق لم يكتمل
+
+// كمّل بالاتصال العادي بعد رد بقائمة/سؤال على التنفيذ داخل التطبيق
 function retryByCall() {
     vib();
     const r = retry;
     retry = null;
-    $('statusRetry').hidden = true;
-    const id = session.get('fp_pending'), ph = session.get('fp_pending_phone');
-    closeOv('ovStatus');   // يمسح الحركة المعلّقة — نعيدها حتى نسأل «تم التحويل؟» بعد المكالمة
+    dialing = !!r;
+    closeOv('ovReply');
     if (!r) return;
-    copyText(r.pin).then(() => toast('الرقم السري منسوخ — الصقه لما يطلبه'), () => {});
-    setTimeout(() => {
-        session.set('fp_pending', id);
-        session.set('fp_pending_phone', ph);
-        maybeShowStatus();
-        dialing = true;
-        Native.ussd.dial(r.code, r.simId).catch(() => { location.href = 'tel:' + r.code.replace(/#/g, '%23'); })
-            .finally(() => setTimeout(() => { dialing = false; }, 1500));
-    }, 300);
+    copySecret(r.pin).then(() => toast('الرقم السري منسوخ — الصقه لما يطلبه'), () => {});
+    setTimeout(() => dialCode(r.code, r.simId), 300);
 }
-// «تم التحويل؟» شريط هادئ في الشاشة الرئيسية، لا نافذة منبثقة: نافذة بال باي/جوال باي
-// تظهر فوق التطبيق فلا نعرف متى انتهى المستخدم — فيجيب حين يخلص، دون أن نقاطعه
-function maybeShowStatus() {
+
+// الرقم السري المنسوخ للصق لا يبقى في الحافظة: يُمسح عند تعليم الحركة أو بعد دقيقتين
+let secretTimer = null;
+function copySecret(pin) {
+    clearTimeout(secretTimer);
+    secretTimer = setTimeout(clearSecret, 120000);
+    return copyText(pin);
+}
+function clearSecret() {
+    if (!secretTimer) return;
+    clearTimeout(secretTimer);
+    secretTimer = null;
+    copyText(' ').catch(() => {});
+}
+
+// شريط هادئ في الشاشة الرئيسية — لا نافذة منبثقة ولا حالة افتراضية: نافذة المحفظة تظهر فوق
+// التطبيق فلا نعرف متى انتهى المستخدم ولا ماذا حدث. يعلّم النتيجة بنفسه إن أراد، أو يتجاهل.
+function showPending() {
     const id = session.get('fp_pending');
     const h = id && hist.find(h => h.id === id);
     const card = $('pendingCard');
-    if (!h || $('ovStatus').classList.contains('show')) { card.hidden = true; return; }
+    if (!h || h.status || dialing || document.querySelector('.overlay.show')) { card.hidden = true; return; }
     const who = h.phone ? (contactName(h.phone) || h.phone) : '';
     $('pendingText').textContent = h.service + (h.amount ? ' · ' + h.amount + ' ₪' : '') + (who ? ' ← ' + who : '');
+    if (!card.hidden) return;
     card.hidden = false;
+    if (curPage === 'home' && !kbOpen) window.scrollTo(0, 0);   // الشريط أعلى الصفحة
 }
 
+// s: 'نجح' أو 'فشل' أو '' (تجاهل — تبقى «غير مؤكد» ويمكن تعليمها لاحقًا من السجل)
 function setStatus(s) {
-    const id = session.get('fp_pending'), phone = session.get('fp_pending_phone');
+    vib();
+    const id = session.get('fp_pending');
     session.set('fp_pending', '');
-    session.set('fp_pending_phone', '');
-    const h = hist.find(h => h.id === id);
-    if (h) { h.status = s; saveHist(); }
-    toast(s === 'نجح' ? 'تم تسجيل: تحويل ناجح' : 'تم تسجيل: تحويل فاشل');
     $('pendingCard').hidden = true;
-    const modal = $('ovStatus').classList.contains('show');
-    if (phone && s === 'نجح' && !contacts.some(c => c.phone === phone)) {
-        $('savePhone').textContent = phone;
-        if (modal) swapOv('ovStatus', 'ovSave'); else openOv('ovSave');
-    } else if (modal) {
-        closeOv('ovStatus');
-    }
-}
-
-function acceptSave() {
-    const ph = $('savePhone').textContent;
-    fillContactForm(-1, { phone: ph, name: scanNames[ph] || '' }, 'حفظ المستفيد');
-    swapOv('ovSave', 'ovContact');
+    clearSecret();
+    const h = hist.find(h => h.id === id);
+    if (!h || !s) return;
+    h.status = s;
+    saveHist();
+    renderRecent();
+    toast(s === 'نجح' ? 'علّمتها: تمت' : 'علّمتها: لم تتم');
 }
 
 // ===== PAYMENT LINKS & QR PAYLOADS =====
@@ -670,7 +779,6 @@ function fillTransfer(p, msg) {
     $('amount').value = p.amount || '';
     $('phoneErr').classList.remove('show');
     $('phone').classList.remove('error');
-    clearAmtBtns('sendAmounts');
     selectService(p.svc);
     const who = contactName(p.phone) || p.phone;
     if (p.amount) toast(msg + ': ' + p.amount + ' ₪ → ' + who);
@@ -686,21 +794,132 @@ function shareApp() {
 
 
 // ===== CONTACT PICKER (Chrome Android) =====
-const hasContactPicker = 'contacts' in navigator && 'ContactsManager' in window;
+// تطبيق أندرويد: شاشة جهات الاتصال في النظام (بلا إذن). المتصفح: Contact Picker إن وُجد
+const hasContactPicker = !!Native.pickContact || ('contacts' in navigator && 'ContactsManager' in window);
 async function pickFromPhone() {
     vib();
     try {
-        const picked = await navigator.contacts.select(['tel', 'name'], { multiple: false });
-        if (!picked || !picked.length) return;
-        const phone = normalizePhone((picked[0].tel && picked[0].tel[0]) || '');
+        let raw = '', name = '';
+        if (Native.pickContact) {
+            const r = await Native.pickContact();
+            if (!r || r.cancelled) return;
+            raw = r.phone || '';
+            name = r.name || '';
+        } else {
+            const picked = await navigator.contacts.select(['tel', 'name'], { multiple: false });
+            if (!picked || !picked.length) return;
+            raw = (picked[0].tel && picked[0].tel[0]) || '';
+            name = (picked[0].name && picked[0].name[0]) || '';
+        }
+        const phone = normalizePhone(raw);
         $('phone').value = phone;
+        if (isValidPh(phone) && name && !contactName(phone)) scanNames[phone] = String(name).slice(0, 40);   // يظهر في التأكيد ويُقترح عند الحفظ
         onPhoneInput();
-        const name = picked[0].name && picked[0].name[0];
         if (!isValidPh(phone)) toast('الرقم المختار ليس رقم جوال فلسطيني');
-        else if (name) toast('تم اختيار: ' + name);
+        else { if (name) toast('تم اختيار: ' + name); if (!$('amount').value) $('amount').focus(); }
     } catch (e) {
-        toast('لم يتم اختيار جهة اتصال');
+        toast('تعذّر فتح جهات الاتصال');
     }
+}
+
+// ===== RECEIVE: كود QR للدفع بمبلغ محدد =====
+// الكود رابط دفع عادي: يُمسح من داخل فلو باي، أو بكاميرا أي جوال فيفتح فلو باي والتحويل جاهز
+let rcvSvc = 'jawwal', rcvLink = '', qrLibLoading = null;
+function loadQrLib() {
+    if (window.qrcode) return Promise.resolve();
+    if (!qrLibLoading) {
+        qrLibLoading = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'vendor/qrcode.js';
+            s.onload = resolve;
+            s.onerror = () => { qrLibLoading = null; s.remove(); reject(); };
+            document.head.appendChild(s);
+        });
+    }
+    return qrLibLoading;
+}
+function showReceive() {
+    vib();
+    if (tab === 'jawwal' || tab === 'palpay') rcvSvc = tab;
+    if (!$('rcvPhone').value) $('rcvPhone').value = store.get('fp_my_phone', '');
+    setRcvSvc(rcvSvc, true);
+    openOv('ovReceive');
+    loadQrLib().then(genQR, () => toast('تعذّر تحميل مولّد QR'));
+}
+function setRcvSvc(svc, quiet) {
+    if (!quiet) vib();
+    rcvSvc = svc;
+    document.querySelectorAll('#rcvSvc button').forEach(b => b.classList.toggle('active', b.dataset.svc === svc));
+    genQR();
+}
+function onRcvInput() {
+    const ph = $('rcvPhone'), am = $('rcvAmount');
+    const p = normalizePhone(ph.value), a = cleanAmount(am.value);
+    if (p !== ph.value) ph.value = p;
+    if (a !== am.value) am.value = a;
+    if (isValidPh(p)) store.set('fp_my_phone', p);
+    genQR();
+}
+function genQR() {
+    const phone = $('rcvPhone').value.trim(), amount = $('rcvAmount').value.trim();
+    const ok = isValidPh(phone) && isValidAmt(amount) && !!window.qrcode;
+    $('rcvQr').hidden = !ok;
+    $('rcvHint').hidden = ok;
+    $('rcvShare').disabled = !ok;
+    if (!ok) { rcvLink = ''; return; }
+    const link = APP_URL + '?svc=' + rcvSvc + '&phone=' + phone + '&amt=' + amount;
+    if (link !== rcvLink) {
+        rcvLink = link;
+        const qr = qrcode(0, 'M');
+        qr.addData(link);
+        qr.make();
+        $('rcvQrSvg').innerHTML = qr.createSvgTag(6, 12);
+    }
+    $('rcvQrInfo').textContent = amount + ' ₪ · ' + SVC[rcvSvc].name + ' · ' + phone;
+}
+// صورة الكود (مع المبلغ والرقم مكتوبين تحتها) عبر شاشة المشاركة، وإلا تنزيلها
+function shareQR() {
+    vib();
+    const svg = $('rcvQrSvg').querySelector('svg');
+    if (!svg || !rcvLink) return;
+    const amount = $('rcvAmount').value.trim(), phone = $('rcvPhone').value.trim(), link = rcvLink;
+    const text = 'ادفع لي ' + amount + ' شيكل عبر ' + SVC[rcvSvc].name + ' — امسح الكود أو افتح الرابط:';
+    const img = new Image();
+    img.onload = () => {
+        const size = 720, pad = 40, foot = 150;
+        const canvas = document.createElement('canvas');
+        canvas.width = size + pad * 2;
+        canvas.height = size + pad * 2 + foot;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, pad, pad, size, size);
+        ctx.fillStyle = '#0b1c2b';
+        ctx.textAlign = 'center';
+        ctx.direction = 'rtl';
+        ctx.font = 'bold 54px sans-serif';
+        ctx.fillText(amount + ' ₪ · ' + SVC[rcvSvc].name, canvas.width / 2, size + pad * 2 + 40);
+        ctx.font = '38px sans-serif';
+        ctx.direction = 'ltr';
+        ctx.fillText(phone, canvas.width / 2, size + pad * 2 + 100);
+        if (Native.isNative) {
+            Native.shareFile('flowpay-qr.png', canvas.toDataURL('image/png').split(',')[1], true, 'كود الدفع — فلو باي').catch(() => {});
+            return;
+        }
+        canvas.toBlob(blob => {
+            const file = new File([blob], 'flowpay-qr.png', { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                navigator.share({ files: [file], title: 'كود الدفع — فلو باي', text: text + '\n' + link }).catch(() => {});
+            } else if (navigator.share) {
+                navigator.share({ title: 'كود الدفع — فلو باي', text, url: link }).catch(() => {});
+            } else {
+                downloadBlob(blob, 'flowpay-qr.png');
+                toast('تم تنزيل صورة الكود');
+            }
+        }, 'image/png');
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(new XMLSerializer().serializeToString(svg))));
 }
 
 // ===== BENEFICIARIES =====
@@ -729,7 +948,7 @@ function pickContact(i) {
     $('phone').value = c.phone;
     $('phoneErr').classList.remove('show');
     $('phone').classList.remove('error');
-    if (c.lastAmount) { $('amount').value = c.lastAmount; clearAmtBtns('sendAmounts'); }
+    if (c.lastAmount) { $('amount').value = c.lastAmount; renderAmounts(); }
     setBeneficiaries(false);
     toast('تم اختيار ' + c.name);
     gen();
@@ -743,6 +962,8 @@ function askDel(i) {
         contacts.splice(i, 1);
         saveContacts();
         renderContacts();
+        renderRecent();
+        gen();
         toast('تم الحذف');
     });
 }
@@ -795,6 +1016,8 @@ function saveContact() {
     editContactIdx = -1;
     saveContacts();
     renderContacts();
+    renderRecent();
+    gen();
     closeOv('ovContact');
     vib(25);
 }
@@ -816,6 +1039,7 @@ function filteredHist() {
         if (SVC[f] && h.service !== SVC[f].name) return false;
         if (f === 'success' && h.status !== 'نجح') return false;
         if (f === 'failed' && h.status !== 'فشل') return false;
+        if (f === 'unknown' && (h.status || !h.amount)) return false;
         if (!q) return true;
         return (h.phone && h.phone.includes(q)) || (h.service && h.service.includes(q)) ||
             (h.phone && names[h.phone] && names[h.phone].toLowerCase().includes(q));
@@ -831,12 +1055,16 @@ function renderHistFull() {
     let html = list.slice(0, histShown).map(h => {
         const cls = h.status === 'نجح' ? 's-ok' : h.status === 'فشل' ? 's-fail' : 's-none';
         const id = esc(h.id);
-        const mark = h.status ? '' : `<div class="hist-mark"><button class="hm-yes" onclick="markHistStatus('${id}','نجح')">✓ نجح</button><button class="hm-no" onclick="markHistStatus('${id}','فشل')">✕ فشل</button></div>`;
+        // فتح قائمة البنك ليس تحويلاً — لا حالة له. والحالة يضعها المستخدم فقط ويقدر يغيّرها
+        const mark = !h.amount ? '' : h.status
+            ? `<button class="hist-undo" onclick="markHistStatus('${id}','')">تعديل</button>`
+            : `<div class="hist-mark"><button class="hm-yes" onclick="markHistStatus('${id}','نجح')">✓ نجح</button><button class="hm-no" onclick="markHistStatus('${id}','فشل')">✕ فشل</button></div>`;
+        const status = h.amount ? `<br><span class="hist-status ${cls}">● ${esc(h.status || 'غير مؤكد')}</span>` : '';
         const k = svcKey(h.service);
         const repeat = k && k !== 'bop' && isValidPh(h.phone) && isValidAmt(h.amount)
             ? `<button class="hist-repeat" onclick="repeatTransfer('${k}','${h.phone}','${esc(h.amount)}','${h.transferType === 'تاجر' ? '2' : '1'}')">🔁 كرّر</button>` : '';
         const who = h.phone ? ' ← <strong class="who">' + esc(names[h.phone] || h.phone) + '</strong>' : '';
-        return `<div class="hist-item"><span class="hist-time">${esc(fmtDate(h))}</span><span class="svc">${esc(h.service)}${h.transferType ? ' · ' + esc(h.transferType) : ''}</span>${who}${h.amount ? '<br>المبلغ: <strong>' + esc(h.amount) + ' ₪</strong>' : ''}<br><span class="hist-status ${cls}">● ${esc(h.status || 'بدون حالة')}</span>${mark}${repeat}</div>`;
+        return `<div class="hist-item"><span class="hist-time">${esc(fmtDate(h))}</span><span class="svc">${esc(h.service)}${h.transferType ? ' · ' + esc(h.transferType) : ''}</span>${who}${h.amount ? '<br>المبلغ: <strong>' + esc(h.amount) + ' ₪</strong>' : ''}${status}${mark}${repeat}</div>`;
     }).join('');
     if (list.length > histShown) html += `<button class="hist-more" onclick="moreHist()">عرض المزيد (${list.length - histShown})</button>`;
     container.innerHTML = html;
@@ -855,7 +1083,8 @@ function markHistStatus(id, s) {
     saveHist();
     renderHistFull();
     renderAnalytics();
-    toast(s === 'نجح' ? 'تم تعليمها كناجحة' : 'تم تعليمها كفاشلة');
+    if (id === session.get('fp_pending')) showPending();
+    if (s) toast(s === 'نجح' ? 'تم تعليمها كناجحة' : 'تم تعليمها كفاشلة');
 }
 
 function setHistFilter(val) {
@@ -887,7 +1116,7 @@ function renderAnalytics() {
     let total = 0, count = 0;
     const svcCount = {}, phoneCount = {};
     hist.forEach(h => {
-        if (h.status !== 'نجح') return;
+        if (h.status === 'فشل' || !(parseFloat(h.amount) > 0)) return;
         const t = typeof h.ts === 'number' ? h.ts : Date.parse(h.date);
         if (isNaN(t)) return;
         const d = new Date(t);
@@ -1157,20 +1386,72 @@ async function scanTick() {
             }
             if (!scanStream) return;
             if (result) {
-                const link = parsePayload(result);
-                const merchant = link ? null : parseMerchantQR(result);
-                if (link || merchant) {
-                    vib(50);
-                    closeOv('scannerWrap');
-                    // ننتظر إغلاق الكاميرا (خطوة رجوع) قبل فتح أي نافذة جديدة
-                    setTimeout(() => link ? fillTransfer(link, 'تم مسح QR') : handleScanned(merchant), 250);
-                    return;
-                }
+                if (useScanResult(result)) return;
                 if (result !== lastBadScan) { lastBadScan = result; toast('هذا الكود ليس كود دفع معروف'); }
             }
         } catch (e) {}
     }
     scanTimer = setTimeout(scanTick, detector ? 150 : 100);
+}
+
+// رابط دفع فلو باي، أو لافتة تاجر (معيار سلطة النقد)، أو رقم جوال فقط
+function useScanResult(result) {
+    const link = parsePayload(result);
+    const merchant = link ? null : parseMerchantQR(result);
+    if (!link && !merchant) return false;
+    vib(50);
+    closeOv('scannerWrap');
+    // ننتظر إغلاق الكاميرا (خطوة رجوع) قبل فتح أي نافذة جديدة
+    setTimeout(() => link ? fillTransfer(link, 'تم مسح QR') : handleScanned(merchant), 250);
+    return true;
+}
+
+// قراءة الكود من صورة محفوظة (لقطة شاشة أو صورة لافتة وصلتك على واتساب).
+// الصورة قد تحوي أكثر من كود أو يكون الكود صغيرًا فيها: نجرّب الصورة كاملة ثم أجزاءها
+async function scanImageFile(ev) {
+    const input = ev.target, file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    toast('جارٍ قراءة الصورة…');
+    try {
+        await loadJsQR();
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.src = url;
+        await img.decode();
+        URL.revokeObjectURL(url);
+        const W = img.naturalWidth, H = img.naturalHeight;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const read = (x, y, w, h, max, blur) => {
+            const k = Math.min(1, max / Math.max(w, h));
+            canvas.width = Math.round(w * k);
+            canvas.height = Math.round(h * k);
+            ctx.filter = blur ? 'blur(' + blur + 'px)' : 'none';
+            ctx.drawImage(img, x, y, w, h, 0, 0, canvas.width, canvas.height);
+            const qr = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+            return qr && qr.data;
+        };
+        const regions = [[0, 0, W, H]];
+        for (const n of [2, 3]) {
+            const w = W / n, h = H / n;
+            for (let y = 0; y + h <= H + 1; y += h / 2) for (let x = 0; x + w <= W + 1; x += w / 2) regions.push([x, y, w, h]);
+        }
+        let bad = false;
+        for (const [x, y, w, h] of regions) {
+            for (const [max, blur] of [[1000, 0], [600, 0], [1000, 2]]) {
+                const data = read(x, y, w, h, max, blur);
+                if (!data) continue;
+                if (useScanResult(data)) return;
+                bad = true;
+                break;
+            }
+            await new Promise(r => setTimeout(r));   // لا نجمّد الواجهة
+        }
+        toast(bad ? 'هذا الكود ليس كود دفع معروف' : 'ما لقينا كود QR في الصورة');
+    } catch (e) {
+        toast('تعذّرت قراءة الصورة');
+    }
 }
 
 function stopScanner() {
@@ -1266,6 +1547,53 @@ function applyUpdate() {
     });
 }
 
+// ===== KEYBOARD =====
+// لوحة المفاتيح تأخذ نصف الشاشة، والشريط السفلي وزر التحويل (ثابتان أسفل الشاشة) يصعدان فوقها
+// فيغطّيان الحقل الذي تكتب فيه. أثناء الكتابة: نخفي الشريط السفلي، نصغّر زر التحويل، ونمرّر
+// الحقل إلى منتصف المساحة الظاهرة.
+const vv = window.visualViewport;
+let fullH = 0, fullW = 0, kbOpen = false;
+function isTyping() {
+    const a = document.activeElement;
+    return !!a && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !/^(checkbox|radio|file|button|submit|range)$/.test(a.type)));
+}
+function updateKeyboard() {
+    const h = vv ? vv.height * vv.scale : window.innerHeight, w = window.innerWidth;
+    if (w !== fullW) { fullW = w; fullH = h; }   // تدوير الشاشة
+    if (h > fullH) fullH = h;
+    const open = isTyping() && fullH - h > 120;
+    // المتصفحات التي تُبقي الصفحة بحجمها وتضع اللوحة فوقها (آيفون): نرفع العناصر الثابتة بمقدارها
+    const inset = open && vv ? Math.max(0, Math.round(window.innerHeight - vv.height * vv.scale - vv.offsetTop)) : 0;
+    document.documentElement.style.setProperty('--kb', inset + 'px');
+    document.body.classList.toggle('kb-tight', open && h < 380);
+    if (open === kbOpen) return;
+    kbOpen = open;
+    document.body.classList.toggle('kb-open', open);
+    if (open) revealFocused();
+}
+function revealFocused() {
+    const a = document.activeElement;
+    if (!kbOpen || !isTyping()) return;
+    setTimeout(() => {
+        try { a.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { a.scrollIntoView(); }
+    }, 60);
+}
+function initKeyboard() {
+    if (vv) { vv.addEventListener('resize', updateKeyboard); vv.addEventListener('scroll', updateKeyboard); }
+    window.addEventListener('resize', updateKeyboard);
+    document.addEventListener('focusin', () => { updateKeyboard(); revealFocused(); });
+    document.addEventListener('focusout', () => setTimeout(updateKeyboard, 60));
+    updateKeyboard();
+    // زر «التالي/تم» في لوحة المفاتيح ينقل للحقل التالي بدل أن لا يفعل شيئًا
+    const chain = { phone: 'amount', amount: 'pin', pin: '', cName: 'cPhone', cPhone: '' };
+    Object.keys(chain).forEach(id => $(id).addEventListener('keydown', e => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const next = chain[id] && $(chain[id]);
+        if (next && next.offsetParent !== null) next.focus(); else e.target.blur();
+    }));
+}
+
 // ===== INIT =====
 function init() {
     if (Native.isNative || isStandalone()) hideInstallUI();
@@ -1287,14 +1615,29 @@ function init() {
 
     if (Native.onLink) Native.onLink(url => { const p = parsePayload(url); if (p) fillTransfer(p, 'رابط دفع'); });
 
+    // زر الرجوع في أندرويد: يغلق النافذة المفتوحة أو يرجع من السجل، ومن الشاشة الرئيسية يصغّر التطبيق.
+    // أثناء انتظار رد الشبكة لا يفعل شيئًا.
+    if (Native.onBack) Native.onBack(() => {
+        if ($('ovBusy').classList.contains('show')) return;
+        if (document.querySelector('.overlay.show, .scanner-wrap.show') || curPage !== 'home') history.back();
+        else Native.minimize();
+    });
+
+    initKeyboard();
+
+    // يفتح على آخر محفظة استخدمتها: اكتب الرقم مباشرة
+    const last = store.get('fp_last_svc', '');
+    if (!tab && SVC[last]) selectService(last);
+    renderRecent();
+
     if (!store.get('fp_onboarded')) openOv('ovOnboard');
 
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) { if (scanStream) closeOv('scannerWrap'); }
-        else maybeShowStatus();
+        else showPending();
     });
-    window.addEventListener('pageshow', maybeShowStatus);
-    maybeShowStatus();
+    window.addEventListener('pageshow', showPending);
+    showPending();
     registerSW();
 }
 

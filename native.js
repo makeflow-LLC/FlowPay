@@ -30,7 +30,13 @@
   var Ussd = P.FlowPayUssd;
   var Clip = P.Clipboard;
 
-  if (Clip) Native.copy = function (text) { return Clip.write({ string: String(text) }); };
+  if (Clip) {
+    Native.copy = function (text) { return Clip.write({ string: String(text) }); };
+    Native.paste = function () { return Clip.read().then(function (r) { return (r && r.value) || ''; }); };
+  }
+
+  // {phone, name} للرقم المختار من شاشة جهات الاتصال، أو {cancelled: true}
+  if (P.FlowPayContacts) Native.pickContact = function () { return P.FlowPayContacts.pick(); };
 
   if (Ussd) {
     Native.ussd = {
@@ -63,4 +69,10 @@
     App.getLaunchUrl().then(function (r) { if (r && r.url) cb(r.url); }).catch(function () {});
     App.addListener('appUrlOpen', function (e) { if (e && e.url) cb(e.url); });
   };
+
+  // زر الرجوع: بدون مستمع لا يفعل Capacitor شيئًا في الشاشة الرئيسية، فلا يخرج المستخدم من التطبيق
+  if (App) {
+    Native.onBack = function (cb) { App.addListener('backButton', cb); };
+    Native.minimize = function () { App.minimizeApp().catch(function () {}); };
+  }
 })(window);
