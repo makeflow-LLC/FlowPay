@@ -151,6 +151,11 @@
         <button id="callBtn" class="btn-main" onclick="confirmCall()" disabled>📞 حوّل الآن</button>
     </div>
 
+    <button class="receive-cta" onclick="showReceive()">
+        <span class="scan-ico">📥</span>
+        <span><b>بدك تستلم؟ اعمل كود QR</b><small>بالمبلغ اللي بدك ياه — اللي يمسحه بيتجهّزله التحويل</small></span>
+    </button>
+
     <div class="footer-links">
         <button onclick="shareApp()">📤 شارك التطبيق</button>
         <button onclick="sendFeedback()">💬 اقتراح أو مساعدة</button>
@@ -208,8 +213,32 @@
     <video id="scanVideo" playsinline autoplay muted></video>
     <div class="scanner-guide"></div>
     <div class="scanner-hint">وجّه الكاميرا نحو QR</div>
+    <button class="scanner-file" onclick="$('scanFile').click()">🖼️ من صورة</button>
+    <input type="file" id="scanFile" accept="image/*" hidden onchange="scanImageFile(event)">
     <button class="scanner-close" onclick="closeOv('scannerWrap')" aria-label="إغلاق">✕</button>
 </div>
+
+<!-- Receive: payment QR for an amount -->
+<div class="overlay" id="ovReceive"><div class="modal wide">
+    <h3>📥 كود QR للاستلام</h3>
+    <div class="transfer-type" id="rcvSvc">
+        <button type="button" data-svc="jawwal" onclick="setRcvSvc('jawwal')">جوال باي</button>
+        <button type="button" data-svc="palpay" onclick="setRcvSvc('palpay')">بال باي</button>
+    </div>
+    <label class="field-caption" for="rcvPhone">رقم محفظتك</label>
+    <input type="tel" id="rcvPhone" class="ltr" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" enterkeyhint="next" autocomplete="off" oninput="onRcvInput()">
+    <label class="field-caption" for="rcvAmount">المبلغ (شيكل)</label>
+    <input type="text" id="rcvAmount" class="ltr" placeholder="0" inputmode="decimal" enterkeyhint="done" autocomplete="off" oninput="onRcvInput()">
+    <div class="qr-box" id="rcvQr" hidden>
+        <div id="rcvQrSvg"></div>
+        <p id="rcvQrInfo"></p>
+    </div>
+    <p class="hint center" id="rcvHint">اكتب رقمك والمبلغ ليظهر الكود</p>
+    <div class="modal-btns">
+        <button class="m-primary" id="rcvShare" onclick="shareQR()" disabled>📤 شارك الكود</button>
+        <button class="m-cancel" onclick="closeOv('ovReceive')">إغلاق</button>
+    </div>
+</div></div>
 
 <!-- Confirm -->
 <div class="overlay" id="ovConfirm"><div class="modal">

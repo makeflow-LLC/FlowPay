@@ -35,6 +35,9 @@
     Native.paste = function () { return Clip.read().then(function (r) { return (r && r.value) || ''; }); };
   }
 
+  // {phone, name} للرقم المختار من شاشة جهات الاتصال، أو {cancelled: true}
+  if (P.FlowPayContacts) Native.pickContact = function () { return P.FlowPayContacts.pick(); };
+
   if (Ussd) {
     Native.ussd = {
       // [{id, slot, carrier, name}] — فارغة إن رُفض الإذن أو لا توجد شرائح

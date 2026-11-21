@@ -794,21 +794,132 @@ function shareApp() {
 
 
 // ===== CONTACT PICKER (Chrome Android) =====
-const hasContactPicker = 'contacts' in navigator && 'ContactsManager' in window;
+// تطبيق أندرويد: شاشة جهات الاتصال في النظام (بلا إذن). المتصفح: Contact Picker إن وُجد
+const hasContactPicker = !!Native.pickContact || ('contacts' in navigator && 'ContactsManager' in window);
 async function pickFromPhone() {
     vib();
     try {
-        const picked = await navigator.contacts.select(['tel', 'name'], { multiple: false });
-        if (!picked || !picked.length) return;
-        const phone = normalizePhone((picked[0].tel && picked[0].tel[0]) || '');
+        let raw = '', name = '';
+        if (Native.pickContact) {
+            const r = await Native.pickContact();
+            if (!r || r.cancelled) return;
+            raw = r.phone || '';
+            name = r.name || '';
+        } else {
+            const picked = await navigator.contacts.select(['tel', 'name'], { multiple: false });
+            if (!picked || !picked.length) return;
+            raw = (picked[0].tel && picked[0].tel[0]) || '';
+            name = (picked[0].name && picked[0].name[0]) || '';
+        }
+        const phone = normalizePhone(raw);
         $('phone').value = phone;
+        if (isValidPh(phone) && name && !contactName(phone)) scanNames[phone] = String(name).slice(0, 40);   // يظهر في التأكيد ويُقترح عند الحفظ
         onPhoneInput();
-        const name = picked[0].name && picked[0].name[0];
         if (!isValidPh(phone)) toast('الرقم المختار ليس رقم جوال فلسطيني');
-        else if (name) toast('تم اختيار: ' + name);
+        else { if (name) toast('تم اختيار: ' + name); if (!$('amount').value) $('amount').focus(); }
     } catch (e) {
-        toast('لم يتم اختيار جهة اتصال');
+        toast('تعذّر فتح جهات الاتصال');
     }
+}
+
+// ===== RECEIVE: كود QR للدفع بمبلغ محدد =====
+// الكود رابط دفع عادي: يُمسح من داخل فلو باي، أو بكاميرا أي جوال فيفتح فلو باي والتحويل جاهز
+let rcvSvc = 'jawwal', rcvLink = '', qrLibLoading = null;
+function loadQrLib() {
+    if (window.qrcode) return Promise.resolve();
+    if (!qrLibLoading) {
+        qrLibLoading = new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = 'vendor/qrcode.js';
+            s.onload = resolve;
+            s.onerror = () => { qrLibLoading = null; s.remove(); reject(); };
+            document.head.appendChild(s);
+        });
+    }
+    return qrLibLoading;
+}
+function showReceive() {
+    vib();
+    if (tab === 'jawwal' || tab === 'palpay') rcvSvc = tab;
+    if (!$('rcvPhone').value) $('rcvPhone').value = store.get('fp_my_phone', '');
+    setRcvSvc(rcvSvc, true);
+    openOv('ovReceive');
+    loadQrLib().then(genQR, () => toast('تعذّر تحميل مولّد QR'));
+}
+function setRcvSvc(svc, quiet) {
+    if (!quiet) vib();
+    rcvSvc = svc;
+    document.querySelectorAll('#rcvSvc button').forEach(b => b.classList.toggle('active', b.dataset.svc === svc));
+    genQR();
+}
+function onRcvInput() {
+    const ph = $('rcvPhone'), am = $('rcvAmount');
+    const p = normalizePhone(ph.value), a = cleanAmount(am.value);
+    if (p !== ph.value) ph.value = p;
+    if (a !== am.value) am.value = a;
+    if (isValidPh(p)) store.set('fp_my_phone', p);
+    genQR();
+}
+function genQR() {
+    const phone = $('rcvPhone').value.trim(), amount = $('rcvAmount').value.trim();
+    const ok = isValidPh(phone) && isValidAmt(amount) && !!window.qrcode;
+    $('rcvQr').hidden = !ok;
+    $('rcvHint').hidden = ok;
+    $('rcvShare').disabled = !ok;
+    if (!ok) { rcvLink = ''; return; }
+    const link = APP_URL + '?svc=' + rcvSvc + '&phone=' + phone + '&amt=' + amount;
+    if (link !== rcvLink) {
+        rcvLink = link;
+        const qr = qrcode(0, 'M');
+        qr.addData(link);
+        qr.make();
+        $('rcvQrSvg').innerHTML = qr.createSvgTag(6, 12);
+    }
+    $('rcvQrInfo').textContent = amount + ' ₪ · ' + SVC[rcvSvc].name + ' · ' + phone;
+}
+// صورة الكود (مع المبلغ والرقم مكتوبين تحتها) عبر شاشة المشاركة، وإلا تنزيلها
+function shareQR() {
+    vib();
+    const svg = $('rcvQrSvg').querySelector('svg');
+    if (!svg || !rcvLink) return;
+    const amount = $('rcvAmount').value.trim(), phone = $('rcvPhone').value.trim(), link = rcvLink;
+    const text = 'ادفع لي ' + amount + ' شيكل عبر ' + SVC[rcvSvc].name + ' — امسح الكود أو افتح الرابط:';
+    const img = new Image();
+    img.onload = () => {
+        const size = 720, pad = 40, foot = 150;
+        const canvas = document.createElement('canvas');
+        canvas.width = size + pad * 2;
+        canvas.height = size + pad * 2 + foot;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(img, pad, pad, size, size);
+        ctx.fillStyle = '#0b1c2b';
+        ctx.textAlign = 'center';
+        ctx.direction = 'rtl';
+        ctx.font = 'bold 54px sans-serif';
+        ctx.fillText(amount + ' ₪ · ' + SVC[rcvSvc].name, canvas.width / 2, size + pad * 2 + 40);
+        ctx.font = '38px sans-serif';
+        ctx.direction = 'ltr';
+        ctx.fillText(phone, canvas.width / 2, size + pad * 2 + 100);
+        if (Native.isNative) {
+            Native.shareFile('flowpay-qr.png', canvas.toDataURL('image/png').split(',')[1], true, 'كود الدفع — فلو باي').catch(() => {});
+            return;
+        }
+        canvas.toBlob(blob => {
+            const file = new File([blob], 'flowpay-qr.png', { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                navigator.share({ files: [file], title: 'كود الدفع — فلو باي', text: text + '\n' + link }).catch(() => {});
+            } else if (navigator.share) {
+                navigator.share({ title: 'كود الدفع — فلو باي', text, url: link }).catch(() => {});
+            } else {
+                downloadBlob(blob, 'flowpay-qr.png');
+                toast('تم تنزيل صورة الكود');
+            }
+        }, 'image/png');
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(new XMLSerializer().serializeToString(svg))));
 }
 
 // ===== BENEFICIARIES =====
@@ -1275,20 +1386,72 @@ async function scanTick() {
             }
             if (!scanStream) return;
             if (result) {
-                const link = parsePayload(result);
-                const merchant = link ? null : parseMerchantQR(result);
-                if (link || merchant) {
-                    vib(50);
-                    closeOv('scannerWrap');
-                    // ننتظر إغلاق الكاميرا (خطوة رجوع) قبل فتح أي نافذة جديدة
-                    setTimeout(() => link ? fillTransfer(link, 'تم مسح QR') : handleScanned(merchant), 250);
-                    return;
-                }
+                if (useScanResult(result)) return;
                 if (result !== lastBadScan) { lastBadScan = result; toast('هذا الكود ليس كود دفع معروف'); }
             }
         } catch (e) {}
     }
     scanTimer = setTimeout(scanTick, detector ? 150 : 100);
+}
+
+// رابط دفع فلو باي، أو لافتة تاجر (معيار سلطة النقد)، أو رقم جوال فقط
+function useScanResult(result) {
+    const link = parsePayload(result);
+    const merchant = link ? null : parseMerchantQR(result);
+    if (!link && !merchant) return false;
+    vib(50);
+    closeOv('scannerWrap');
+    // ننتظر إغلاق الكاميرا (خطوة رجوع) قبل فتح أي نافذة جديدة
+    setTimeout(() => link ? fillTransfer(link, 'تم مسح QR') : handleScanned(merchant), 250);
+    return true;
+}
+
+// قراءة الكود من صورة محفوظة (لقطة شاشة أو صورة لافتة وصلتك على واتساب).
+// الصورة قد تحوي أكثر من كود أو يكون الكود صغيرًا فيها: نجرّب الصورة كاملة ثم أجزاءها
+async function scanImageFile(ev) {
+    const input = ev.target, file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    toast('جارٍ قراءة الصورة…');
+    try {
+        await loadJsQR();
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.src = url;
+        await img.decode();
+        URL.revokeObjectURL(url);
+        const W = img.naturalWidth, H = img.naturalHeight;
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const read = (x, y, w, h, max, blur) => {
+            const k = Math.min(1, max / Math.max(w, h));
+            canvas.width = Math.round(w * k);
+            canvas.height = Math.round(h * k);
+            ctx.filter = blur ? 'blur(' + blur + 'px)' : 'none';
+            ctx.drawImage(img, x, y, w, h, 0, 0, canvas.width, canvas.height);
+            const qr = jsQR(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
+            return qr && qr.data;
+        };
+        const regions = [[0, 0, W, H]];
+        for (const n of [2, 3]) {
+            const w = W / n, h = H / n;
+            for (let y = 0; y + h <= H + 1; y += h / 2) for (let x = 0; x + w <= W + 1; x += w / 2) regions.push([x, y, w, h]);
+        }
+        let bad = false;
+        for (const [x, y, w, h] of regions) {
+            for (const [max, blur] of [[1000, 0], [600, 0], [1000, 2]]) {
+                const data = read(x, y, w, h, max, blur);
+                if (!data) continue;
+                if (useScanResult(data)) return;
+                bad = true;
+                break;
+            }
+            await new Promise(r => setTimeout(r));   // لا نجمّد الواجهة
+        }
+        toast(bad ? 'هذا الكود ليس كود دفع معروف' : 'ما لقينا كود QR في الصورة');
+    } catch (e) {
+        toast('تعذّرت قراءة الصورة');
+    }
 }
 
 function stopScanner() {
