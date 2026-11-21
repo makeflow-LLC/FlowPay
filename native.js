@@ -63,4 +63,10 @@
     App.getLaunchUrl().then(function (r) { if (r && r.url) cb(r.url); }).catch(function () {});
     App.addListener('appUrlOpen', function (e) { if (e && e.url) cb(e.url); });
   };
+
+  // زر الرجوع: بدون مستمع لا يفعل Capacitor شيئًا في الشاشة الرئيسية، فلا يخرج المستخدم من التطبيق
+  if (App) {
+    Native.onBack = function (cb) { App.addListener('backButton', cb); };
+    Native.minimize = function () { App.minimizeApp().catch(function () {}); };
+  }
 })(window);

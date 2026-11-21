@@ -373,3 +373,24 @@ body.has-action{padding-bottom:calc(170px + env(safe-area-inset-bottom,0px))}
 .pending-btns button{padding:9px 12px;border-radius:10px;font-size:13px;font-weight:700}
 .p-yes{background:rgba(74,222,128,.15);color:var(--ok);border:1px solid rgba(74,222,128,.4)!important}
 .p-no{background:rgba(248,113,113,.12);color:var(--danger);border:1px solid rgba(248,113,113,.4)!important}
+
+/* ===== لوحة المفاتيح مفتوحة =====
+   الشريط السفلي يختفي، وزر التحويل يصغر ويلتصق فوق اللوحة، فيبقى الحقل ظاهرًا.
+   --kb: ارتفاع اللوحة حين تغطي الصفحة بدل أن تصغّرها (آيفون)، وإلا 0 */
+body.kb-open .bottom-nav{display:none}
+body.kb-open,body.kb-open.has-action{padding-bottom:calc(24px + var(--kb,0px))}
+body.kb-open.has-action{padding-bottom:calc(84px + var(--kb,0px))}
+body.kb-open .action-bar{bottom:var(--kb,0px);padding:6px 12px 8px;background:var(--bg);border-top:1px solid var(--line)}
+body.kb-open .action-bar .btn-main{padding:12px;font-size:16px;border-radius:12px;box-shadow:none}
+body.kb-tight .action-bar{display:none}
+body.kb-tight.has-action{padding-bottom:calc(24px + var(--kb,0px))}
+body.kb-open .toast,body.kb-open.has-action .toast{bottom:calc(16px + var(--kb,0px))}
+body.kb-open.has-action:not(.kb-tight) .toast{bottom:calc(76px + var(--kb,0px))}
+.overlay{padding-bottom:calc(20px + var(--kb,0px))}
+.modal{max-height:calc(100dvh - 40px - var(--kb,0px))}
+
+.save-num{display:block;margin-top:6px}
+.p-skip{color:var(--dim);font-size:18px;padding:9px 8px!important}
+.hist-undo{padding:3px 9px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--dim);font-size:11.5px;font-weight:600;margin-right:8px}
+.analytics-note{font-size:11px;color:var(--muted);line-height:1.7;margin-top:10px;text-align:center}
+.modal h3.danger{color:var(--danger)}
