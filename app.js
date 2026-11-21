@@ -244,10 +244,79 @@ function selectService(svc) {
     updateTypeUI();
     $('pinLabel').innerHTML = esc(SVC[svc].pinTitle) + ' <span class="optional">(اختياري)</span>';
     $('pin').placeholder = SVC[svc].pinPh;
+    store.set('fp_last_svc', svc);   // المرة الجاية يفتح التطبيق على نفس المحفظة
+    $('pasteBtn').hidden = !canPaste;
+    renderAmounts();
     renderRecent();
     gen();
 }
 function switchTab(t) { vib(); selectService(t); }
+
+// أزرار المبالغ: المبالغ التي تحوّلها كثيرًا بهذه المحفظة أولاً، والباقي من الافتراضي
+function renderAmounts() {
+    const count = {};
+    hist.forEach(h => {
+        if (h.service === (SVC[tab] && SVC[tab].name) && h.status !== 'فشل' && isValidAmt(h.amount)) count[h.amount] = (count[h.amount] || 0) + 1;
+    });
+    const picks = Object.keys(count).filter(a => count[a] >= 2).sort((a, b) => count[b] - count[a]).slice(0, 4);
+    for (const d of ['5', '10', '20', '50']) if (picks.length < 4 && !picks.some(p => parseFloat(p) === parseFloat(d))) picks.push(d);
+    picks.sort((a, b) => parseFloat(a) - parseFloat(b));
+    const cur = $('amount').value;
+    $('sendAmounts').innerHTML = picks.map(a => `<button class="amt-btn${a === cur ? ' sel' : ''}" onclick="setAmt('${esc(a)}',this)">${esc(a)}</button>`).join('');
+}
+
+// اقتراحات أثناء كتابة الرقم: من المحفوظين ومن الأرقام التي حوّلت لها سابقًا
+function renderSuggest() {
+    const box = $('phoneSuggest');
+    const v = $('phone').value.trim();
+    let html = '';
+    if (tab && tab !== 'bop' && !isMerchant()) {
+        if (isValidPh(v)) {
+            const c = contacts.find(c => c.phone === v);
+            if (c) html = `<span class="phone-known">✓ ${esc(c.name)}</span>`;
+        } else if (v.length >= 3) {
+            const seen = new Set(), out = [];
+            const add = (phone, name) => { if (out.length < 4 && isValidPh(phone) && phone.includes(v) && !seen.has(phone)) { seen.add(phone); out.push([phone, name]); } };
+            contacts.forEach(c => add(c.phone, c.name));
+            hist.forEach(h => add(h.phone, ''));
+            html = out.map(([p, n]) => `<button class="suggest-item" onclick="pickSuggest('${p}')"><b>${esc(n || p)}</b>${n ? '<small>' + p + '</small>' : ''}</button>`).join('');
+        }
+    }
+    box.innerHTML = html;
+    box.hidden = !html;
+}
+function pickSuggest(phone) {
+    vib();
+    const c = contacts.find(c => c.phone === phone);
+    $('phone').value = phone;
+    $('phoneErr').classList.remove('show');
+    $('phone').classList.remove('error');
+    if (c && c.lastAmount && !$('amount').value) { $('amount').value = c.lastAmount; renderAmounts(); }
+    gen();
+    if (!$('amount').value) $('amount').focus(); else $('phone').blur();
+}
+
+// لصق رقم منسوخ (من واتساب مثلاً): نلتقط أول رقم جوال صالح من النص مهما كان حوله
+function extractPhone(text) {
+    const t = toDigits(text);
+    for (const m of t.match(/[+\d][\d\s\-()]{6,20}/g) || []) {
+        const p = normalizePhone(m);
+        if (isMerchant() ? /^\d{4,12}$/.test(p) : isValidPh(p)) return p;
+    }
+    return '';
+}
+const canPaste = !!(Native.paste || (navigator.clipboard && navigator.clipboard.readText));
+function pastePhone() {
+    vib();
+    (Native.paste ? Native.paste() : navigator.clipboard.readText()).then(text => {
+        const p = extractPhone(text);
+        if (!p) { toast(isMerchant() ? 'ما في رقم تاجر في الحافظة' : 'ما في رقم جوال في الحافظة'); return; }
+        $('phone').value = p;
+        onPhoneInput();
+        toast('تم لصق ' + (contactName(p) || p));
+        if (!$('amount').value) $('amount').focus();
+    }).catch(() => toast('تعذّر قراءة الحافظة — الصق الرقم يدويًا'));
+}
 
 function setJawwalType(type) { vib(); jawwalType = type; updateTypeUI(); onPhoneInput(); }
 function updateTypeUI() {
@@ -255,29 +324,24 @@ function updateTypeUI() {
     $('phoneLabel').textContent = tab === 'jawwal' ? (jawwalType === '2' ? 'رقم التاجر' : 'رقم الصديق') : 'رقم المحوّل إليه';
 }
 
-// آخر من حوّلت لهم بهذه المحفظة: ضغطة وحدة تعبّي الرقم والمبلغ
+// تحويل سريع: آخر من حوّلت لهم بأي محفظة — ضغطة وحدة تختار المحفظة وتعبّي الرقم والمبلغ
 function renderRecent() {
-    const bar = $('recentBar');
     const seen = new Set(), items = [];
     for (const h of hist) {
-        if (items.length >= 5) break;
-        if (h.service !== (SVC[tab] && SVC[tab].name) || !isValidPh(h.phone) || seen.has(h.phone) || h.status === 'فشل') continue;
-        seen.add(h.phone);
-        items.push(h);
+        if (items.length >= 6) break;
+        const k = svcKey(h.service), merchant = h.transferType === 'تاجر';
+        if (!k || k === 'bop' || h.status === 'فشل' || !isValidAmt(h.amount)) continue;
+        if (merchant ? !/^\d{4,12}$/.test(h.phone) : !isValidPh(h.phone)) continue;
+        const key = k + h.phone;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        items.push({ k, h, type: merchant ? '2' : '1' });
     }
-    bar.hidden = !items.length || tab === 'bop';
-    bar.innerHTML = items.map(h => {
+    $('quickWrap').hidden = !items.length;
+    $('recentBar').innerHTML = items.map(({ k, h, type }) => {
         const name = contactName(h.phone);
-        return `<button class="recent-chip" onclick="useRecent('${h.phone}','${esc(isValidAmt(h.amount) ? h.amount : '')}')"><b>${esc(name || h.phone)}</b><small>${name ? esc(h.phone.slice(-4)) + ' · ' : ''}${esc(h.amount || '')} ₪</small></button>`;
+        return `<button class="recent-chip" data-svc="${k}" onclick="repeatTransfer('${k}','${esc(h.phone)}','${esc(h.amount)}','${type}')"><b>${esc(name || h.phone)}</b><small>${esc(h.amount)} ₪ · ${esc(h.service)}</small></button>`;
     }).join('');
-}
-function useRecent(phone, amount) {
-    vib();
-    $('phone').value = phone;
-    $('phoneErr').classList.remove('show');
-    $('phone').classList.remove('error');
-    if (amount) { $('amount').value = amount; clearAmtBtns('sendAmounts'); }
-    gen();
 }
 
 function onPhoneInput() {
@@ -340,6 +404,7 @@ function gen() {
     $('callBtn').textContent = label;
     $('amountWarn').classList.toggle('show', tab !== 'bop' && parseFloat(amount) > threshold());
     // رقم جديد صحيح؟ نعرض حفظه هنا — بلا علاقة بنتيجة أي تحويل
+    renderSuggest();
     $('saveNumBtn').hidden = !(tab && tab !== 'bop' && !isMerchant() && isValidPh(phone) && !contacts.some(c => c.phone === phone));
 }
 function saveCurrentNumber() {
@@ -714,7 +779,6 @@ function fillTransfer(p, msg) {
     $('amount').value = p.amount || '';
     $('phoneErr').classList.remove('show');
     $('phone').classList.remove('error');
-    clearAmtBtns('sendAmounts');
     selectService(p.svc);
     const who = contactName(p.phone) || p.phone;
     if (p.amount) toast(msg + ': ' + p.amount + ' ₪ → ' + who);
@@ -773,7 +837,7 @@ function pickContact(i) {
     $('phone').value = c.phone;
     $('phoneErr').classList.remove('show');
     $('phone').classList.remove('error');
-    if (c.lastAmount) { $('amount').value = c.lastAmount; clearAmtBtns('sendAmounts'); }
+    if (c.lastAmount) { $('amount').value = c.lastAmount; renderAmounts(); }
     setBeneficiaries(false);
     toast('تم اختيار ' + c.name);
     gen();
@@ -1397,6 +1461,11 @@ function init() {
     });
 
     initKeyboard();
+
+    // يفتح على آخر محفظة استخدمتها: اكتب الرقم مباشرة
+    const last = store.get('fp_last_svc', '');
+    if (!tab && SVC[last]) selectService(last);
+    renderRecent();
 
     if (!store.get('fp_onboarded')) openOv('ovOnboard');
 

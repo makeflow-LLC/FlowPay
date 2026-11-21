@@ -30,7 +30,10 @@
   var Ussd = P.FlowPayUssd;
   var Clip = P.Clipboard;
 
-  if (Clip) Native.copy = function (text) { return Clip.write({ string: String(text) }); };
+  if (Clip) {
+    Native.copy = function (text) { return Clip.write({ string: String(text) }); };
+    Native.paste = function () { return Clip.read().then(function (r) { return (r && r.value) || ''; }); };
+  }
 
   if (Ussd) {
     Native.ussd = {

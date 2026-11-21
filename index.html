@@ -69,6 +69,12 @@
         </div>
     </div>
 
+    <!-- تحويل سريع: آخر من حوّلت لهم، بأي محفظة — ضغطة وحدة تجهّز كل شيء -->
+    <div id="quickWrap" hidden>
+        <div class="step-title">⚡ تحويل سريع</div>
+        <div class="recent" id="recentBar"></div>
+    </div>
+
     <div class="step-title">اختر المحفظة</div>
     <div class="services" id="sendServices">
         <button class="service-card" data-svc="jawwal" onclick="switchTab('jawwal')">
@@ -101,29 +107,27 @@
         <div class="input-group" id="phoneGroup">
             <div class="label-row">
                 <label for="phone" id="phoneLabel">رقم المحوّل إليه</label>
-                <button class="link-btn" id="beneficiariesToggle" onclick="toggleBeneficiaries()" aria-expanded="false">👥 المحفوظين</button>
+                <span class="label-links">
+                    <button class="link-btn" id="pasteBtn" onclick="pastePhone()" hidden>📋 لصق</button>
+                    <button class="link-btn" id="beneficiariesToggle" onclick="toggleBeneficiaries()" aria-expanded="false">👥 المحفوظين</button>
+                </span>
             </div>
             <div class="input-wrap">
                 <input type="tel" id="phone" class="has-icon" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" enterkeyhint="next" autocomplete="off" oninput="onPhoneInput()">
                 <button class="toggle-btn" id="pickContactBtn" onclick="pickFromPhone()" aria-label="اختر من جهات الاتصال" hidden>📇</button>
             </div>
             <div class="error-msg" id="phoneErr">يجب أن يبدأ بـ 05 ويكون 10 أرقام</div>
+            <div class="phone-suggest" id="phoneSuggest" hidden></div>
             <button class="link-btn save-num" id="saveNumBtn" onclick="saveCurrentNumber()" hidden>＋ احفظ هذا الرقم باسم</button>
             <div class="beneficiaries-panel" id="beneficiariesPanel">
                 <div class="card-title">المستفيدون المحفوظون <button onclick="showAddContact()">+ إضافة</button></div>
                 <div id="contactsBar"></div>
             </div>
-            <div class="recent" id="recentBar" hidden></div>
         </div>
 
         <div class="input-group" id="amountGroup">
             <label for="amount">المبلغ (شيكل)</label>
-            <div class="amounts" id="sendAmounts">
-                <button class="amt-btn" onclick="setAmt(5,this)">5</button>
-                <button class="amt-btn" onclick="setAmt(10,this)">10</button>
-                <button class="amt-btn" onclick="setAmt(20,this)">20</button>
-                <button class="amt-btn" onclick="setAmt(50,this)">50</button>
-            </div>
+            <div class="amounts" id="sendAmounts"></div>
             <div class="input-wrap">
                 <input type="text" id="amount" placeholder="أو اكتب مبلغ آخر" inputmode="decimal" enterkeyhint="next" autocomplete="off" oninput="onAmountInput()">
                 <span class="unit">₪</span>
@@ -322,6 +326,8 @@
                 <li><span class="hs-num">3</span><span>اكتب رقم المستلم والمبلغ</span></li>
                 <li><span class="hs-num">4</span><span>الرقم السري اختياري — يسرّع التحويل</span></li>
                 <li><span class="hs-num">5</span><span>اضغط "حوّل الآن" وراجع التفاصيل قبل الاتصال</span></li>
+                <li><span class="hs-num">⚡</span><span>للمرة الجاية: اضغط الاسم في «تحويل سريع» وكل شي بيتعبّى لحاله</span></li>
+                <li><span class="hs-num">📋</span><span>نسخت رقم من واتساب؟ اضغط «لصق» وبنطلّع الرقم من النص</span></li>
             </ul>
         </div>
         <div class="help-section">

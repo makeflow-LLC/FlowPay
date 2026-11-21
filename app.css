@@ -394,3 +394,18 @@ body.kb-open.has-action:not(.kb-tight) .toast{bottom:calc(76px + var(--kb,0px))}
 .hist-undo{padding:3px 9px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--dim);font-size:11.5px;font-weight:600;margin-right:8px}
 .analytics-note{font-size:11px;color:var(--muted);line-height:1.7;margin-top:10px;text-align:center}
 .modal h3.danger{color:var(--danger)}
+
+/* ===== تحويل سريع، اقتراحات، لصق ===== */
+#quickWrap{margin-bottom:16px}
+#quickWrap .recent{margin-top:0}
+.recent-chip{align-items:flex-start;max-width:150px;border-inline-start:3px solid var(--brand,var(--line));background:var(--surface);transition:transform .15s}
+.recent-chip:active{transform:scale(.95)}
+.recent-chip[data-svc=jawwal]{--brand:var(--jawwal)}
+.recent-chip[data-svc=palpay]{--brand:#a46ad0}
+.recent-chip small{direction:rtl;white-space:nowrap}
+.label-links{display:flex;gap:12px}
+.phone-suggest{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.suggest-item{display:flex;flex-direction:column;align-items:flex-start;padding:7px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:13px;line-height:1.5}
+.suggest-item:active{border-color:var(--accent)}
+.suggest-item small{color:var(--dim);direction:ltr;font-size:11.5px}
+.phone-known{font-size:13px;font-weight:700;color:var(--ok)}
