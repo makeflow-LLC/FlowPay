@@ -38,6 +38,18 @@
   // {phone, name} للرقم المختار من شاشة جهات الاتصال، أو {cancelled: true}
   if (P.FlowPayContacts) Native.pickContact = function () { return P.FlowPayContacts.pick(); };
 
+  // قفل البصمة وتخزين مشفّر للرقم السري (SecurePlugin.java)
+  var Sec = P.FlowPaySecure;
+  if (Sec) {
+    Native.secure = {
+      available: function () { return Sec.available().then(function (r) { return !!(r && r.available); }).catch(function () { return false; }); },
+      auth: function (reason) { return Sec.authenticate({ title: 'فلو باي', subtitle: reason || '' }).then(function (r) { return !!(r && r.ok); }).catch(function () { return false; }); },
+      set: function (k, v) { return Sec.setSecret({ key: k, value: String(v) }); },
+      get: function (k) { return Sec.getSecret({ key: k }).then(function (r) { return (r && r.value) || ''; }).catch(function () { return ''; }); },
+      del: function (k) { return Sec.removeSecret({ key: k }).catch(function () {}); }
+    };
+  }
+
   if (Ussd) {
     Native.ussd = {
       // [{id, slot, carrier, name}] — فارغة إن رُفض الإذن أو لا توجد شرائح

@@ -2,7 +2,7 @@
 /* ================= فلو باي =================
    يجهّز كود USSD للتحويل (جوال باي / بال باي / بنك فلسطين) ويفتح المتصل به.
    كل البيانات (المستفيدون، السجل، الإعدادات) في localStorage على الجهاز فقط.
-   الرقم السري لا يُحفظ أبدًا: يُستخدم لبناء الكود ثم يُمسح من الحقل.
+   الرقم السري لا يُحفظ إلا باختيار المستخدم (تطبيق أندرويد، مشفّرًا في Keystore)؛ وإلا يُستخدم لبناء الكود ثم يُمسح.
 ============================================== */
 
 const APP_VERSION = '__BUILD__';
@@ -11,11 +11,11 @@ const SUPPORT_WA = '970597750343';
 
 const SVC = {
     jawwal: { name: 'جوال باي',
-        pinTitle: 'الرقم السري المكون من 4 أرقام', pinPh: 'اختياري — لتسريع التحويل' },
+        pinPh: 'الرقم السري (اختياري)' },
     palpay: { name: 'بال باي',
-        pinTitle: 'الرقم السري المكون من 4 أرقام', pinPh: 'يُنسخ للحافظة لإلصاقه أثناء المكالمة' },
+        pinPh: 'الرقم السري (اختياري — يُنسخ للصق)' },
     bop: { name: 'بنك فلسطين',
-        pinTitle: 'الرقم السري لبنك فلسطين', pinPh: 'للدخول للقائمة التفاعلية' }
+        pinPh: 'الرقم السري (اختياري)' }
 };
 
 const CATS = {
@@ -242,8 +242,8 @@ function selectService(svc) {
     $('amountGroup').hidden = bop;
     setBeneficiaries(false);
     updateTypeUI();
-    $('pinLabel').innerHTML = esc(SVC[svc].pinTitle) + ' <span class="optional">(اختياري)</span>';
     $('pin').placeholder = SVC[svc].pinPh;
+    updatePinUI();
     store.set('fp_last_svc', svc);   // المرة الجاية يفتح التطبيق على نفس المحفظة
     $('pasteBtn').hidden = !canPaste;
     renderAmounts();
@@ -274,6 +274,11 @@ function renderSuggest() {
         if (isValidPh(v)) {
             const c = contacts.find(c => c.phone === v);
             if (c) html = `<span class="phone-known">✓ ${esc(c.name)}</span>`;
+        } else if (!v && document.activeElement === $('phone')) {
+            html = recentItems().map(h => {
+                const n = contactName(h.phone);
+                return `<button class="suggest-item" onclick="pickSuggest('${h.phone}','${esc(isValidAmt(h.amount) ? h.amount : '')}')"><b>${esc(n || h.phone)}</b><small>${esc(h.amount || '')} ₪</small></button>`;
+            }).join('');
         } else if (v.length >= 3) {
             const seen = new Set(), out = [];
             const add = (phone, name) => { if (out.length < 4 && isValidPh(phone) && phone.includes(v) && !seen.has(phone)) { seen.add(phone); out.push([phone, name]); } };
@@ -285,9 +290,10 @@ function renderSuggest() {
     box.innerHTML = html;
     box.hidden = !html;
 }
-function pickSuggest(phone) {
+function pickSuggest(phone, amount) {
     vib();
     const c = contacts.find(c => c.phone === phone);
+    if (amount && !$('amount').value) { $('amount').value = amount; renderAmounts(); }
     $('phone').value = phone;
     $('phoneErr').classList.remove('show');
     $('phone').classList.remove('error');
@@ -324,25 +330,18 @@ function updateTypeUI() {
     $('phoneLabel').textContent = tab === 'jawwal' ? (jawwalType === '2' ? 'رقم التاجر' : 'رقم الصديق') : 'رقم المحوّل إليه';
 }
 
-// تحويل سريع: آخر من حوّلت لهم بأي محفظة — ضغطة وحدة تختار المحفظة وتعبّي الرقم والمبلغ
-function renderRecent() {
+// آخر من حوّلت لهم بهذه المحفظة — تظهر كاقتراحات فقط حين تضغط على حقل الرقم وهو فارغ
+function recentItems() {
     const seen = new Set(), items = [];
     for (const h of hist) {
-        if (items.length >= 6) break;
-        const k = svcKey(h.service), merchant = h.transferType === 'تاجر';
-        if (!k || k === 'bop' || h.status === 'فشل' || !isValidAmt(h.amount)) continue;
-        if (merchant ? !/^\d{4,12}$/.test(h.phone) : !isValidPh(h.phone)) continue;
-        const key = k + h.phone;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        items.push({ k, h, type: merchant ? '2' : '1' });
+        if (items.length >= 3) break;
+        if (h.service !== (SVC[tab] && SVC[tab].name) || h.status === 'فشل' || !isValidPh(h.phone) || seen.has(h.phone)) continue;
+        seen.add(h.phone);
+        items.push(h);
     }
-    $('quickWrap').hidden = !items.length;
-    $('recentBar').innerHTML = items.map(({ k, h, type }) => {
-        const name = contactName(h.phone);
-        return `<button class="recent-chip" data-svc="${k}" onclick="repeatTransfer('${k}','${esc(h.phone)}','${esc(h.amount)}','${type}')"><b>${esc(name || h.phone)}</b><small>${esc(h.amount)} ₪ · ${esc(h.service)}</small></button>`;
-    }).join('');
+    return items;
 }
+function renderRecent() { renderSuggest(); }
 
 function onPhoneInput() {
     const el = $('phone');
@@ -376,7 +375,7 @@ function setAmt(v, el) { vib(); clearAmtBtns('sendAmounts'); el.classList.add('s
 function clearAmtBtns(id) { $(id).querySelectorAll('.amt-btn.sel').forEach(b => b.classList.remove('sel')); }
 
 function formValues() {
-    return { phone: $('phone').value.trim(), amount: $('amount').value.trim(), pin: $('pin').value };
+    return { phone: $('phone').value.trim(), amount: $('amount').value.trim(), pin: currentPin() };
 }
 function buildCode() {
     const { phone, amount, pin } = formValues();
@@ -414,6 +413,70 @@ function saveCurrentNumber() {
     openOv('ovContact');
 }
 
+// ===== الرقم السري المحفوظ (تطبيق أندرويد فقط) =====
+// يُحفظ مشفّرًا بمفتاح في Android Keystore، لكل محفظة رقمها. في الذاكرة فقط بعد فتح القفل.
+let savedPins = {};
+function currentPin() { return savedPins[tab] || $('pin').value; }
+function updatePinUI() {
+    const saved = !!savedPins[tab];
+    $('pinEntry').hidden = saved;
+    $('pinSaved').hidden = !saved;
+    $('pinSaveRow').hidden = !Native.secure;
+}
+async function loadPins() {
+    if (!Native.secure) return;
+    for (const k of Object.keys(SVC)) {
+        const v = await Native.secure.get('pin_' + k);
+        if (/^\d{4}$/.test(v)) savedPins[k] = v;
+    }
+    if (tab) { updatePinUI(); gen(); }
+}
+async function rememberPin(svc, pin) {
+    try { await Native.secure.set('pin_' + svc, pin); } catch (e) { toast('تعذّر حفظ الرقم السري'); return; }
+    savedPins[svc] = pin;
+    $('pinSave').checked = false;
+    if (tab === svc) updatePinUI();
+    // رقم سري محفوظ بلا قفل = أي شخص يمسك الجوال يقدر يحوّل. نفعّل القفل معه
+    if (store.get('fp_lock') !== '1' && await Native.secure.available()) {
+        store.set('fp_lock', '1');
+        toast('حفظنا الرقم السري وفعّلنا قفل البصمة لحمايته');
+    }
+}
+function forgetPin() {
+    vib();
+    const svc = tab;
+    ask('حذف الرقم السري المحفوظ؟', 'رح تكتبه بنفسك في كل تحويل عبر ' + SVC[svc].name, 'حذف', () => {
+        delete savedPins[svc];
+        Native.secure.del('pin_' + svc);
+        updatePinUI();
+        gen();
+        toast('تم حذف الرقم السري المحفوظ');
+    });
+}
+
+// ===== قفل التطبيق بالبصمة (تطبيق أندرويد فقط) =====
+let locked = false, unlocking = false, hiddenAt = 0;
+function lockOn() { return !!Native.secure && store.get('fp_lock') === '1'; }
+function lockApp() {
+    locked = true;
+    savedPins = {};
+    $('lockScreen').hidden = false;
+    unlockApp();
+}
+async function unlockApp() {
+    if (unlocking) return;
+    unlocking = true;
+    const ok = await Native.secure.auth('افتح فلو باي');
+    unlocking = false;
+    // لم يعد في الجوال بصمة ولا قفل شاشة: لا نحبس المستخدم خارج تطبيقه
+    if (!ok && !(await Native.secure.available())) store.set('fp_lock', '0');
+    else if (!ok) return;   // تبقى مقفلة — زر «افتح» يعيد المحاولة
+    locked = false;
+    $('lockScreen').hidden = true;
+    await loadPins();
+    showPending();
+}
+
 function confirmCall() {
     vib(30);
     const { phone, amount, pin } = formValues();
@@ -422,6 +485,8 @@ function confirmCall() {
         if (!isValidTo(phone)) { toast(isMerchant() ? 'أدخل رقم التاجر' : 'أدخل رقم صحيح (يبدأ بـ 05)'); return; }
         if (!isValidAmt(amount)) { toast('أدخل المبلغ'); return; }
     }
+    // ضغطة وحدة: الزر نفسه مكتوب عليه المبلغ والمستلم. نافذة التأكيد للمبالغ الكبيرة فقط
+    if (tab === 'bop' || !(parseFloat(amount) > threshold())) { proceedCall(); return; }
     let info;
     if (tab === 'bop') {
         info = '<div class="confirm-main">رح تفتح قائمة بنك فلسطين</div>';
@@ -441,7 +506,7 @@ function confirmCall() {
 
 // الرقم السري لا يظهر على الشاشة حتى في المعاينة
 function maskPin(code) {
-    const pin = $('pin').value;
+    const pin = currentPin();
     if (!/^\d{4}$/.test(pin)) return code;
     // الرقم السري يأتي مباشرة بعد بادئة الكود: *110*1*PIN* أو *267*PIN#
     return code.replace(/^(\*110\*\d\*|\*267\*)\d{4}/, '$1••••');
@@ -449,7 +514,7 @@ function maskPin(code) {
 
 // ماذا سيحدث بعد الاتصال — حتى لا يتفاجأ المستخدم بالقائمة
 function ussdSteps(code) {
-    const pin = /^\d{4}$/.test($('pin').value);
+    const pin = /^\d{4}$/.test(currentPin());
     const steps = [];
     if (!CAN_DIAL) steps.push('رح ننسخ الكود — الصقه في تطبيق الهاتف واضغط اتصال');
     if (tab === 'jawwal') {
@@ -549,6 +614,7 @@ async function startTransfer() {
     const fullCode = svc === 'jawwal' && /^\d{4}$/.test(pin) && isValidTo(phone);
     retry = null;
 
+    if (Native.secure && !savedPins[svc] && $('pinSave').checked && /^\d{4}$/.test(pin)) rememberPin(svc, pin);
     // الرقم السري لا يبقى في الحقل بعد استخدامه
     $('pin').value = '';
     $('pin').type = 'password';
@@ -605,7 +671,7 @@ function dialCode(code, simId) {
     }).catch(() => { location.href = telHref(code); }).finally(done);
 }
 
-let dialing = false, retry = null;
+let dialing = false, retry = null, lockAvailable = false;
 
 // رد الشبكة على التنفيذ داخل التطبيق: يُعرض حرفيًا. لا عنوان «تم» ولا «فشل» من عندنا،
 // ولا تتغير حالة الحركة في السجل — المرجع رسالة المحفظة نفسها.
@@ -658,7 +724,7 @@ function showPending() {
     const id = session.get('fp_pending');
     const h = id && hist.find(h => h.id === id);
     const card = $('pendingCard');
-    if (!h || h.status || dialing || document.querySelector('.overlay.show')) { card.hidden = true; return; }
+    if (!h || h.status || dialing || locked || document.querySelector('.overlay.show')) { card.hidden = true; return; }
     const who = h.phone ? (contactName(h.phone) || h.phone) : '';
     $('pendingText').textContent = h.service + (h.amount ? ' · ' + h.amount + ' ₪' : '') + (who ? ' ← ' + who : '');
     if (!card.hidden) return;
@@ -1197,10 +1263,21 @@ function showSettings() {
     $('setHistLimit').value = histLimit();
     $('appVersion').textContent = APP_VERSION;
     $('setInApp').checked = store.get('fp_inapp') !== '0';
+    $('setLock').checked = lockOn();
+    $('lockSection').hidden = !lockAvailable;
     openOv('ovSettings');
 }
 
-function saveSettings() {
+async function saveSettings() {
+    // تشغيل القفل أو إيقافه يحتاج البصمة نفسها
+    if (lockAvailable && $('setLock').checked !== lockOn()) {
+        if (!(await Native.secure.auth($('setLock').checked ? 'تفعيل قفل التطبيق' : 'إيقاف قفل التطبيق'))) {
+            $('setLock').checked = lockOn();
+            toast('ما تغيّر القفل — ما تم التحقق');
+            return;
+        }
+        store.set('fp_lock', $('setLock').checked ? '1' : '0');
+    }
     const lt = parseInt(toDigits($('setLargeThreshold').value), 10);
     const hl = parseInt(toDigits($('setHistLimit').value), 10);
     if (lt > 0) store.set('fp_large_threshold', String(lt));
@@ -1316,6 +1393,9 @@ function resetAllData() {
         contacts = [];
         hist = [];
         ['fp_contacts', 'fp_templates', 'fp_debts', 'fp_hist', 'fp_my_phone'].forEach(store.del);
+        if (Native.secure) Object.keys(SVC).forEach(k => Native.secure.del('pin_' + k));
+        savedPins = {};
+        if (tab) { updatePinUI(); gen(); }
         renderContacts();
         if (curPage === 'history') { renderHistFull(); renderAnalytics(); }
         toast('تم حذف جميع البيانات');
@@ -1633,12 +1713,17 @@ function init() {
     // زر الرجوع في أندرويد: يغلق النافذة المفتوحة أو يرجع من السجل، ومن الشاشة الرئيسية يصغّر التطبيق.
     // أثناء انتظار رد الشبكة لا يفعل شيئًا.
     if (Native.onBack) Native.onBack(() => {
+        if (locked) { Native.minimize(); return; }
         if ($('ovBusy').classList.contains('show')) return;
         if (document.querySelector('.overlay.show, .scanner-wrap.show') || curPage !== 'home') history.back();
         else Native.minimize();
     });
 
     initKeyboard();
+    $('phone').addEventListener('focus', renderSuggest);
+
+    if (Native.secure) Native.secure.available().then(ok => { lockAvailable = ok; });
+    if (lockOn()) lockApp(); else loadPins();
 
     // يفتح على آخر محفظة استخدمتها: اكتب الرقم مباشرة
     const last = store.get('fp_last_svc', '');
@@ -1648,7 +1733,9 @@ function init() {
     if (!store.get('fp_onboarded')) openOv('ovOnboard');
 
     document.addEventListener('visibilitychange', () => {
-        if (document.hidden) { if (scanStream) closeOv('scannerWrap'); }
+        if (document.hidden) { hiddenAt = Date.now(); if (scanStream) closeOv('scannerWrap'); return; }
+        // رجع بعد غياب 3 دقائق أو أكثر (وليس من مكالمة تحويل): يُقفل من جديد
+        if (lockOn() && !locked && !dialing && hiddenAt && Date.now() - hiddenAt > 180000) lockApp();
         else showPending();
     });
     window.addEventListener('pageshow', showPending);

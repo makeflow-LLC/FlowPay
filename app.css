@@ -423,3 +423,32 @@ body.kb-open.has-action:not(.kb-tight) .toast{bottom:calc(76px + var(--kb,0px))}
 .qr-box p{margin-top:8px;font-size:13px;font-weight:700;color:var(--text);direction:rtl}
 .m-primary:disabled{background:var(--surface2);color:var(--muted)}
 .scanner-file{position:fixed;bottom:calc(120px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);z-index:1051;background:rgba(255,255,255,.92);color:#0b1c2b;font-size:14px;font-weight:700;padding:10px 20px;border-radius:20px}
+
+/* ===== شاشة أبسط: كل النموذج ظاهر بلا تمرير ===== */
+body{padding-top:calc(10px + env(safe-area-inset-top,0px))}
+.header{padding:0 0 10px}
+.app-logo{height:40px}
+.icon-btn{width:38px;height:38px;font-size:16px}
+.services{gap:8px;margin-bottom:10px}
+.service-card{display:flex;flex-direction:column;align-items:center;padding:8px 4px 7px;border-radius:14px}
+.service-card img,.svc-badge{width:36px;height:36px;border-radius:10px;margin-bottom:4px;box-shadow:none}
+.service-card span{font-size:12.5px}
+.service-card.active::after{top:5px;left:5px;width:16px;height:16px;font-size:10px}
+.card{padding:12px}
+.input-group{margin-bottom:10px}
+.transfer-type button{padding:9px 8px;font-size:13.5px}
+.label-row{margin-bottom:4px}
+.input-group label{font-size:13px}
+.input-wrap input{padding:11px 14px;font-size:18px;border-radius:12px}
+.amounts{margin-bottom:8px}
+.amt-btn{padding:9px 4px;font-size:16px;border-radius:10px}
+.pin-save{margin-top:8px;font-size:12.5px;font-weight:500;color:var(--dim)}
+.pin-save input{width:18px!important;height:18px}
+.pin-saved{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border:1px solid var(--line);border-radius:12px;background:var(--bg);font-size:14px;font-weight:600;color:var(--ok)}
+.action-bar{padding:8px 16px 10px}
+.action-bar .btn-main{padding:15px}
+body.has-action{padding-bottom:calc(160px + env(safe-area-inset-bottom,0px))}
+.receive-cta{margin-top:10px}
+.lock-screen{position:fixed;inset:0;z-index:2000;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:32px}
+.lock-screen p{color:var(--dim);font-size:15px}
+.lock-screen .btn-main{max-width:280px}

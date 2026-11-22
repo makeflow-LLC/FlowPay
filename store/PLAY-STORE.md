@@ -50,7 +50,7 @@
 • يعمل بدون إنترنت، والتطبيق لا يملك إذن الإنترنت أصلاً
 • بدون حساب وبدون تسجيل وبدون إعلانات
 • كل بياناتك على جهازك فقط
-• الرقم السري لا يُحفظ أبداً
+• قفل بالبصمة، والرقم السري لا يُحفظ إلا باختيارك (مشفّراً على جهازك)
 
 تنبيه مهم:
 فلو باي أداة مستقلة من تطوير MakeFlow، وغير تابع لجوال باي أو بال باي أو بنك فلسطين ولا يمثّلها. التطبيق لا يحتفظ بأموالك ولا ينفّذ التحويل بنفسه، ولا يعرف نتيجة التحويل: التأكيد دائماً من رسالة المحفظة.
@@ -77,7 +77,7 @@ Privacy:
 • Works offline. The app does not even hold the Internet permission
 • No account, no sign-up, no ads
 • All your data stays on your device
-• Your PIN is never stored
+• Fingerprint lock. Your PIN is stored only if you choose to (encrypted, on your device)
 
 Important:
 FlowPay is an independent tool by MakeFlow. It is not affiliated with, endorsed by, or representing Jawwal Pay, PalPay or Bank of Palestine. The app does not hold your money, does not process the transfer itself, and does not know its result: confirmation always comes from your wallet's own message.
@@ -108,6 +108,7 @@ FlowPay is an independent tool by MakeFlow. It is not affiliated with, endorsed 
 | `CALL_PHONE` | الاتصال بكود USSD الذي جهّزه المستخدم وأكّده في نافذة التأكيد. لا اتصال بأي رقم آخر |
 | `READ_PHONE_STATE` | أسماء الشرائح فقط لاختيار شريحة كل محفظة في الجوالات ثنائية الشريحة |
 | `CAMERA` | مسح كود QR للدفع |
+| `USE_BIOMETRIC` | قفل التطبيق بالبصمة (اختياري) |
 
 التطبيق لا يطلب أذونات الرسائل أو سجل المكالمات أو جهات الاتصال، فلا يلزم نموذج «الأذونات الحساسة».
 
