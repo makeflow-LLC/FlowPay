@@ -69,13 +69,6 @@
         </div>
     </div>
 
-    <!-- تحويل سريع: آخر من حوّلت لهم، بأي محفظة — ضغطة وحدة تجهّز كل شيء -->
-    <div id="quickWrap" hidden>
-        <div class="step-title">⚡ تحويل سريع</div>
-        <div class="recent" id="recentBar"></div>
-    </div>
-
-    <div class="step-title">اختر المحفظة</div>
     <div class="services" id="sendServices">
         <button class="service-card" data-svc="jawwal" onclick="switchTab('jawwal')">
             <img src="img/jawwalpay.png" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><b class="svc-badge" hidden>JP</b>
@@ -126,22 +119,29 @@
         </div>
 
         <div class="input-group" id="amountGroup">
-            <label for="amount">المبلغ (شيكل)</label>
             <div class="amounts" id="sendAmounts"></div>
             <div class="input-wrap">
-                <input type="text" id="amount" placeholder="أو اكتب مبلغ آخر" inputmode="decimal" enterkeyhint="next" autocomplete="off" oninput="onAmountInput()">
+                <input type="text" id="amount" aria-label="المبلغ بالشيكل" placeholder="المبلغ" inputmode="decimal" enterkeyhint="next" autocomplete="off" oninput="onAmountInput()">
                 <span class="unit">₪</span>
             </div>
             <div class="error-msg warn" id="amountWarn">⚠️ مبلغ كبير — تأكد جيداً قبل التحويل</div>
         </div>
 
         <div class="input-group" id="pinGroup">
-            <label for="pin" id="pinLabel">الرقم السري المكون من 4 أرقام <span class="optional">(اختياري)</span></label>
-            <div class="input-wrap">
-                <input type="password" id="pin" placeholder="يسرّع التحويل بخطوة وحدة" inputmode="numeric" enterkeyhint="done" maxlength="4" autocomplete="off" oninput="onPinInput()">
-                <button class="toggle-btn" onclick="togglePin(this)" aria-label="إظهار الرقم السري">👁️</button>
+            <div id="pinEntry">
+                <div class="input-wrap">
+                    <input type="password" id="pin" aria-label="الرقم السري" placeholder="الرقم السري (اختياري)" inputmode="numeric" enterkeyhint="done" maxlength="4" autocomplete="off" oninput="onPinInput()">
+                    <button class="toggle-btn" onclick="togglePin(this)" aria-label="إظهار الرقم السري">👁️</button>
+                </div>
+                <label class="switch-row pin-save" id="pinSaveRow" hidden>
+                    <input type="checkbox" id="pinSave">
+                    <span>احفظه على هذا الجهاز (مشفّر)</span>
+                </label>
             </div>
-            <p class="hint small">🔒 بيسرّع التحويل لخطوة وحدة — لا يُحفظ ولا يُرسل لأحد</p>
+            <div class="pin-saved" id="pinSaved" hidden>
+                <span>🔑 الرقم السري محفوظ</span>
+                <button class="link-btn" onclick="forgetPin()">حذف</button>
+            </div>
         </div>
 
     </div>
@@ -355,8 +355,9 @@
                 <li><span class="hs-num">2</span><span>في جوال باي اختر: لصديق أو دفع لتاجر</span></li>
                 <li><span class="hs-num">3</span><span>اكتب رقم المستلم والمبلغ</span></li>
                 <li><span class="hs-num">4</span><span>الرقم السري اختياري — يسرّع التحويل</span></li>
-                <li><span class="hs-num">5</span><span>اضغط "حوّل الآن" وراجع التفاصيل قبل الاتصال</span></li>
-                <li><span class="hs-num">⚡</span><span>للمرة الجاية: اضغط الاسم في «تحويل سريع» وكل شي بيتعبّى لحاله</span></li>
+                <li><span class="hs-num">5</span><span>اضغط زر «حوّل» — مكتوب عليه المبلغ والمستلم، فتأكد منهم قبل الضغط</span></li>
+                <li><span class="hs-num">⚡</span><span>للمرة الجاية: اضغط حقل الرقم وهو فاضي وبيطلعلك آخر من حوّلت لهم</span></li>
+                <li><span class="hs-num">🔑</span><span>في التطبيق: علّم «احفظه» تحت الرقم السري وما بتكتبه مرة ثانية، والتطبيق بينقفل بالبصمة</span></li>
                 <li><span class="hs-num">📋</span><span>نسخت رقم من واتساب؟ اضغط «لصق» وبنطلّع الرقم من النص</span></li>
             </ul>
         </div>
@@ -411,6 +412,14 @@
         <small class="settings-hint">جوال باي مع الرقم السري: التحويل كله بيصير جوّا التطبيق ويظهرلك رد المحفظة. (بال باي ما بتسمح بهيك — بتسأل عن الرقم السري أثناء الاتصال.)</small>
         <button class="settings-btn" id="simResetBtn" onclick="resetSims()">📶 إعادة اختيار الشريحة لكل محفظة</button>
     </div>
+    <div class="settings-section" id="lockSection" hidden>
+        <div class="settings-label">🔒 الحماية</div>
+        <label class="switch-row">
+            <input type="checkbox" id="setLock">
+            <span>قفل التطبيق بالبصمة</span>
+        </label>
+        <small class="settings-hint">يطلب البصمة (أو قفل الشاشة) عند فتح التطبيق وبعد 3 دقائق خارجه. يحمي الرقم السري المحفوظ.</small>
+    </div>
     <div class="settings-section">
         <div class="settings-label">💾 نسخ احتياطي للبيانات</div>
         <small class="settings-hint block">يحفظ ملف JSON يحتوي مستفيديك وسجلّك. يعمل بدون إنترنت</small>
@@ -445,6 +454,13 @@
         <button class="m-primary" onclick="closeOnboard()">يلا نبدأ!</button>
     </div>
 </div></div>
+
+<!-- App lock (Android): covers everything until the fingerprint check passes -->
+<div class="lock-screen" id="lockScreen" hidden>
+    <img src="img/logo.png" alt="فلو باي" width="120">
+    <p>التطبيق مقفل</p>
+    <button class="btn-main" onclick="unlockApp()">🔓 افتح بالبصمة</button>
+</div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
