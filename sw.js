@@ -13,6 +13,7 @@ const ASSETS = [
   './vendor/qrcode.js',
   './manifest.json',
   './privacy.html',
+  './terms.html',
   './img/logo.png',
   './icons/icon-192.png',
   './icons/favicon.png',
