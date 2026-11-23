@@ -1,10 +1,10 @@
-# ينشر نسخة الويب على GitHub Pages تلقائيًا مع كل دفعة إلى main.
+# ينشر نسخة الويب على GitHub Pages تلقائيًا مع كل دفعة إلى الفرع الرئيسي.
 # الملفات ثابتة: نسخها (دون android/) وختم رقم الإصدار يتم في scripts/build-www.mjs.
 name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'claude/gifted-brahmagupta-mr5lb8']
   workflow_dispatch:
 
 permissions:
