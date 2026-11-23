@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="theme-color" content="#0b1c2b">
+    <meta name="color-scheme" content="dark">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="فلو باي">
+    <meta name="app-version" content="2.0.0.29">
+    <meta name="description" content="فلو باي — تطبيق مجاني لتسهيل التحويل عبر جوال باي وبال باي وبنك فلسطين. يعمل بدون إنترنت وبدون تسجيل.">
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://flowpay.sbs/">
+    <meta property="og:title" content="فلو باي — حوّل فلوسك بضغطة وحدة">
+    <meta property="og:description" content="تطبيق مجاني يسهّل التحويل عبر جوال باي وبال باي وبنك فلسطين — بدون إنترنت وبدون تسجيل.">
+    <meta property="og:image" content="https://flowpay.sbs/img/og-image.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale" content="ar_AR">
+    <meta property="og:site_name" content="فلو باي">
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="فلو باي — حوّل فلوسك بضغطة وحدة">
+    <meta name="twitter:description" content="تطبيق مجاني يسهّل التحويل عبر جوال باي وبال باي وبنك فلسطين.">
+    <meta name="twitter:image" content="https://flowpay.sbs/img/og-image.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="icons/favicon.png">
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="app.css?v=2.0.0.29">
+    <title>فلو باي</title>
+</head>
+<body>
+<div class="update-bar" id="updateBar">
+    <span>يوجد تحديث جديد</span>
+    <button onclick="applyUpdate()">تحديث الآن</button>
+</div>
+<div class="container">
+<div class="page active" id="pageHome">
+    <div class="header">
+        <img src="img/logo.png" class="app-logo" alt="فلو باي" width="86" height="72">
+        <div class="header-actions">
+            <button class="icon-btn web-only" id="installManualBtn" onclick="showInstallGuide()" aria-label="تثبيت التطبيق">📲</button>
+            <button class="icon-btn" onclick="showHelp()" aria-label="دليل الاستخدام">❓</button>
+            <button class="icon-btn" onclick="showSettings()" aria-label="الإعدادات">⚙️</button>
+        </div>
+    </div>
+
+    <div class="install-banner" id="installBanner">
+        <img src="icons/icon-192.png" alt="">
+        <div class="ib-text">
+            <p>ثبّت فلو باي</p>
+            <small>أضفه لشاشتك الرئيسية</small>
+        </div>
+        <button class="ib-btn" onclick="installApp()">تثبيت</button>
+        <button class="ib-close" onclick="dismissInstall()" aria-label="إغلاق">×</button>
+    </div>
+
+    <div class="section active" id="sendSection">
+
+    <div class="pending-card" id="pendingCard" hidden>
+        <div class="pending-info"><b>شو صار بالتحويل؟</b><span id="pendingText"></span></div>
+        <div class="pending-btns">
+            <button class="p-yes" onclick="setStatus('نجح')">✓ تم</button>
+            <button class="p-no" onclick="setStatus('فشل')">✕ ما تم</button>
+            <button class="p-skip" onclick="setStatus('')" aria-label="تجاهل">×</button>
+        </div>
+    </div>
+
+    <div class="services" id="sendServices">
+        <button class="service-card" data-svc="jawwal" onclick="switchTab('jawwal')">
+            <img src="img/jawwalpay.png" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><b class="svc-badge" hidden>JP</b>
+            <span>جوال باي</span>
+        </button>
+        <button class="service-card" data-svc="palpay" onclick="switchTab('palpay')">
+            <img src="img/palpay.png" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><b class="svc-badge" hidden>PP</b>
+            <span>بال باي</span>
+        </button>
+        <button class="service-card" data-svc="bop" onclick="switchTab('bop')">
+            <img src="img/bop.png" alt="" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><b class="svc-badge" hidden>BOP</b>
+            <span>بنك فلسطين</span>
+        </button>
+    </div>
+
+    <button class="scan-cta" id="scanCta" onclick="startScanner()">
+        <span class="scan-ico">📷</span>
+        <span><b>عند تاجر؟ امسح كود الدفع</b><small>بنعبّيلك المحفظة ورقم التاجر لحالنا</small></span>
+    </button>
+
+    <div class="card" id="formCard" hidden>
+        <div class="input-group" id="jawwalTypeGroup" hidden>
+            <div class="transfer-type">
+                <button type="button" class="active" data-type="1" onclick="setJawwalType('1')">👤 لصديق</button>
+                <button type="button" data-type="2" onclick="setJawwalType('2')">🏪 دفع لتاجر</button>
+            </div>
+        </div>
+
+        <div class="input-group" id="phoneGroup">
+            <div class="label-row">
+                <label for="phone" id="phoneLabel">رقم المحوّل إليه</label>
+                <span class="label-links">
+                    <button class="link-btn" id="pasteBtn" onclick="pastePhone()" hidden>📋 لصق</button>
+                    <button class="link-btn" id="beneficiariesToggle" onclick="toggleBeneficiaries()" aria-expanded="false">👥 المحفوظين</button>
+                </span>
+            </div>
+            <div class="input-wrap">
+                <input type="tel" id="phone" class="has-icon" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" enterkeyhint="next" autocomplete="off" oninput="onPhoneInput()">
+                <button class="toggle-btn" id="pickContactBtn" onclick="pickFromPhone()" aria-label="اختر من جهات الاتصال" hidden>📇</button>
+            </div>
+            <div class="error-msg" id="phoneErr">يجب أن يبدأ بـ 05 ويكون 10 أرقام</div>
+            <div class="phone-suggest" id="phoneSuggest" hidden></div>
+            <button class="link-btn save-num" id="saveNumBtn" onclick="saveCurrentNumber()" hidden>＋ احفظ هذا الرقم باسم</button>
+            <div class="beneficiaries-panel" id="beneficiariesPanel">
+                <div class="card-title">المستفيدون المحفوظون <button onclick="showAddContact()">+ إضافة</button></div>
+                <div id="contactsBar"></div>
+            </div>
+        </div>
+
+        <div class="input-group" id="amountGroup">
+            <div class="amounts" id="sendAmounts"></div>
+            <div class="input-wrap">
+                <input type="text" id="amount" aria-label="المبلغ بالشيكل" placeholder="المبلغ" inputmode="decimal" enterkeyhint="next" autocomplete="off" oninput="onAmountInput()">
+                <span class="unit">₪</span>
+            </div>
+            <div class="error-msg warn" id="amountWarn">⚠️ مبلغ كبير — تأكد جيداً قبل التحويل</div>
+        </div>
+
+        <div class="input-group" id="pinGroup">
+            <div id="pinEntry">
+                <div class="input-wrap">
+                    <input type="password" id="pin" aria-label="الرقم السري" placeholder="الرقم السري (اختياري)" inputmode="numeric" enterkeyhint="done" maxlength="4" autocomplete="off" oninput="onPinInput()">
+                    <button class="toggle-btn" onclick="togglePin(this)" aria-label="إظهار الرقم السري">👁️</button>
+                </div>
+                <label class="switch-row pin-save" id="pinSaveRow" hidden>
+                    <input type="checkbox" id="pinSave">
+                    <span>احفظه على هذا الجهاز (مشفّر)</span>
+                </label>
+            </div>
+            <div class="pin-saved" id="pinSaved" hidden>
+                <span>🔑 الرقم السري محفوظ</span>
+                <button class="link-btn" onclick="forgetPin()">حذف</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- زر التحويل ثابت أسفل الشاشة: دائماً بمتناول الإصبع -->
+    <div class="action-bar" id="actionBar" hidden>
+        <button id="callBtn" class="btn-main" onclick="confirmCall()" disabled>📞 حوّل الآن</button>
+    </div>
+
+    <button class="receive-cta" onclick="showReceive()">
+        <span class="scan-ico">📥</span>
+        <span><b>بدك تستلم؟ اعمل كود QR</b><small>اللي يمسحه بكاميرا جواله بينفتحله كود التحويل جاهز — بدون أي تطبيق</small></span>
+    </button>
+
+    <div class="footer-links">
+        <button onclick="shareApp()">📤 شارك التطبيق</button>
+        <button onclick="sendFeedback()">💬 اقتراح أو مساعدة</button>
+    </div>
+    <p class="disclaimer">فلو باي أداة مستقلة، غير تابعة لجوال باي أو بال باي أو بنك فلسطين.<br>التحويل يتم عبر شبكة الاتصالات مباشرةً · من تطوير MakeFlow</p>
+    </div><!-- end sendSection -->
+
+</div><!-- end pageHome -->
+
+<!-- History Page -->
+<div class="page" id="pageHistory">
+    <div class="card-title page-title">سجل الحركات <button class="danger-link" onclick="askClearHist()">مسح الكل</button></div>
+
+    <div class="analytics-card">
+        <div class="analytics-header">📊 إحصائياتك هذا الشهر</div>
+        <div class="analytics-body">
+            <div class="analytics-chart">
+                <canvas id="pieChart" width="120" height="120"></canvas>
+                <div class="legend-list" id="pieLegend"></div>
+            </div>
+            <div class="analytics-stats">
+                <div class="stat-item"><span class="stat-label">إجمالي التحويلات</span><span class="stat-value" id="statTotal">0 ₪</span></div>
+                <div class="stat-item"><span class="stat-label">عدد التحويلات</span><span class="stat-value" id="statSuccess">0</span></div>
+                <div class="stat-item"><span class="stat-label">أكثر خدمة</span><span class="stat-value" id="statTop">-</span></div>
+                <div class="stat-item"><span class="stat-label">أكثر مستفيد</span><span class="stat-value" id="statTopContact">-</span></div>
+            </div>
+        </div>
+        <p class="analytics-note">تُحسب كل الحركات ما عدا اللي علّمتها «فشل». فلو باي ما بيعرف نتيجة التحويل — علّم الحركة بنفسك من القائمة تحت.</p>
+    </div>
+
+    <input class="hist-search" type="search" placeholder="بحث بالرقم أو الاسم..." oninput="filterHist()" id="histSearch">
+    <div class="hist-filters" id="histFilters">
+        <button class="hist-filter sel" data-f="all" onclick="setHistFilter('all')">الكل</button>
+        <button class="hist-filter" data-f="jawwal" onclick="setHistFilter('jawwal')">جوال باي</button>
+        <button class="hist-filter" data-f="palpay" onclick="setHistFilter('palpay')">بال باي</button>
+        <button class="hist-filter" data-f="bop" onclick="setHistFilter('bop')">بنك فلسطين</button>
+        <button class="hist-filter" data-f="success" onclick="setHistFilter('success')">ناجح</button>
+        <button class="hist-filter" data-f="failed" onclick="setHistFilter('failed')">فاشل</button>
+        <button class="hist-filter" data-f="unknown" onclick="setHistFilter('unknown')">غير مؤكد</button>
+    </div>
+    <div class="hist-full" id="histFull"></div>
+</div>
+
+</div><!-- end container -->
+
+<!-- Bottom Navigation -->
+<nav class="bottom-nav">
+    <button class="nav-item active" data-page="home" onclick="navTo('home')"><span class="nav-icon">🏠</span>الرئيسية</button>
+    <button class="nav-scan" onclick="startScanner()" aria-label="امسح كود QR"><span>📷</span></button>
+    <button class="nav-item" data-page="history" onclick="navTo('history')"><span class="nav-icon">📊</span>السجل</button>
+</nav>
+
+<!-- QR Scanner -->
+<div class="scanner-wrap" id="scannerWrap">
+    <video id="scanVideo" playsinline autoplay muted></video>
+    <div class="scanner-guide"></div>
+    <div class="scanner-hint">وجّه الكاميرا نحو QR</div>
+    <button class="scanner-file" onclick="$('scanFile').click()">🖼️ من صورة</button>
+    <input type="file" id="scanFile" accept="image/*" hidden onchange="scanImageFile(event)">
+    <button class="scanner-close" onclick="closeOv('scannerWrap')" aria-label="إغلاق">✕</button>
+</div>
+
+<!-- Receive: payment QR for an amount -->
+<div class="overlay" id="ovReceive"><div class="modal wide">
+    <h3>📥 كود QR للاستلام</h3>
+    <div class="transfer-type" id="rcvSvc">
+        <button type="button" data-svc="jawwal" onclick="setRcvSvc('jawwal')">جوال باي</button>
+        <button type="button" data-svc="palpay" onclick="setRcvSvc('palpay')">بال باي</button>
+    </div>
+    <label class="field-caption" for="rcvPhone">رقم محفظتك</label>
+    <input type="tel" id="rcvPhone" class="ltr" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" enterkeyhint="next" autocomplete="off" oninput="onRcvInput()">
+    <label class="field-caption" for="rcvAmount">المبلغ (شيكل)</label>
+    <input type="text" id="rcvAmount" class="ltr" placeholder="0" inputmode="decimal" enterkeyhint="done" autocomplete="off" oninput="onRcvInput()">
+    <div class="qr-box" id="rcvQr" hidden>
+        <div id="rcvQrSvg"></div>
+        <p id="rcvQrInfo"></p>
+    </div>
+    <p class="hint center" id="rcvHint">اكتب رقمك والمبلغ ليظهر الكود</p>
+    <p class="hint small center">الدافع يمسحه بكاميرا جواله فينفتح المتصل والكود جاهز — ما بيحتاج فلو باي. (الآيفون لا يفتح أكواد USSD من الكاميرا.)</p>
+    <div class="modal-btns">
+        <button class="m-primary" id="rcvShare" onclick="shareQR()" disabled>📤 شارك الكود</button>
+        <button class="m-cancel" onclick="closeOv('ovReceive')">إغلاق</button>
+    </div>
+</div></div>
+
+<!-- Confirm -->
+<div class="overlay" id="ovConfirm"><div class="modal">
+    <h3>تأكيد قبل الاتصال</h3>
+    <div class="confirm-detail" id="confirmInfo"></div>
+    <div class="modal-btns">
+        <button class="m-primary" onclick="proceedCall()">يلّا، حوّل 📞</button>
+        <button class="m-cancel" onclick="closeOv('ovConfirm')">تراجع</button>
+    </div>
+</div></div>
+
+<!-- Add / Edit Contact -->
+<div class="overlay" id="ovContact"><div class="modal">
+    <h3 id="contactTitle">إضافة مستفيد</h3>
+    <input type="text" id="cName" placeholder="الاسم" maxlength="40" enterkeyhint="next" autocomplete="off">
+    <input type="tel" id="cPhone" class="ltr" placeholder="05XXXXXXXX" maxlength="16" inputmode="tel" enterkeyhint="done" autocomplete="off" oninput="valCPhone()">
+    <div class="error-msg" id="cPhoneErr">يجب أن يبدأ بـ 05 ويكون 10 أرقام</div>
+    <div class="field-caption">النوع:</div>
+    <div class="cats" id="catsGrid"></div>
+    <div class="modal-btns">
+        <button class="m-primary" onclick="saveContact()">حفظ</button>
+        <button class="m-cancel" onclick="closeOv('ovContact')">إلغاء</button>
+    </div>
+</div></div>
+
+<!-- Generic confirm (delete / clear / import) -->
+<div class="overlay" id="ovAsk"><div class="modal center">
+    <h3 id="askTitle"></h3>
+    <p class="hint" id="askText"></p>
+    <div class="modal-btns">
+        <button class="m-cancel danger" id="askYes">تأكيد</button>
+        <button class="m-cancel" onclick="closeOv('ovAsk')">إلغاء</button>
+    </div>
+</div></div>
+
+<!-- Wallet reply to an in-app USSD request: shown verbatim, the app never judges the outcome -->
+<div class="overlay" id="ovReply"><div class="modal center">
+    <h3 id="replyTitle">📩 رد المحفظة</h3>
+    <p class="ussd-msg" id="replyMsg" hidden></p>
+    <p class="hint" id="replyHint"></p>
+    <div class="modal-btns">
+        <button class="m-primary" onclick="closeOv('ovReply')">تمام</button>
+    </div>
+    <button class="settings-btn retry-btn" id="replyRetry" onclick="retryByCall()" hidden>📞 كمّل عبر الاتصال</button>
+</div></div>
+
+<!-- SIM choice (dual-SIM phones, Android app) -->
+<div class="overlay" id="ovSim"><div class="modal center">
+    <h3>📶 من أي شريحة؟</h3>
+    <p class="hint" id="simText"></p>
+    <div class="sim-list" id="simList"></div>
+    <p class="hint small">رح نتذكر اختيارك — تقدر تغيّره من الإعدادات</p>
+    <div class="modal-btns">
+        <button class="m-cancel" onclick="closeOv('ovSim')">إلغاء</button>
+    </div>
+</div></div>
+
+<!-- Scanned a plain phone number: which wallet? -->
+<div class="overlay" id="ovPickSvc"><div class="modal center">
+    <h3>📷 تم مسح الرقم</h3>
+    <p class="ltr save-phone" id="pickSvcPhone"></p>
+    <p class="hint">بأي محفظة بدك تدفع؟</p>
+    <div class="sim-list">
+        <button class="sim-btn" onclick="pickScannedSvc('palpay','1')">بال باي</button>
+        <button class="sim-btn" onclick="pickScannedSvc('jawwal','1')">جوال باي <small>لصديق</small></button>
+        <button class="sim-btn" onclick="pickScannedSvc('jawwal','2')">جوال باي <small>دفع لتاجر</small></button>
+    </div>
+    <div class="modal-btns">
+        <button class="m-cancel" onclick="closeOv('ovPickSvc')">إلغاء</button>
+    </div>
+</div></div>
+
+<!-- In-app USSD running -->
+<div class="overlay" id="ovBusy"><div class="modal center">
+    <div class="spinner"></div>
+    <h3>جارٍ إرسال الطلب…</h3>
+    <p class="hint">لا تغلق التطبيق — ننتظر رد الشبكة</p>
+</div></div>
+
+<!-- iPhone: USSD can't be dialed from a link -->
+<div class="overlay" id="ovIos"><div class="modal">
+    <h3>📋 تم نسخ الكود</h3>
+    <p class="hint center">الآيفون لا يسمح بفتح أكواد التحويل مباشرة، فكمّلها بنفسك:</p>
+    <ul class="install-steps">
+        <li><span class="step-num">1</span><span>افتح تطبيق <strong>الهاتف</strong> ← <strong>لوحة الأرقام</strong></span></li>
+        <li><span class="step-num">2</span><span>اضغط مطوّلاً مكان الرقم ← <strong>لصق</strong></span></li>
+        <li><span class="step-num">3</span><span>اضغط <strong>اتصال</strong> ✅</span></li>
+    </ul>
+    <div class="code-box ltr" id="iosCode"></div>
+    <div class="modal-btns">
+        <button class="m-primary" onclick="copyCodeAgain()">📋 انسخ مرة ثانية</button>
+        <button class="m-cancel" onclick="closeOv('ovIos')">تمام</button>
+    </div>
+</div></div>
+
+<!-- Install Guide -->
+<div class="overlay" id="ovInstall"><div class="modal">
+    <h3 id="installGuideTitle">كيف تثبّت التطبيق؟</h3>
+    <ul class="install-steps" id="installSteps"></ul>
+    <div class="modal-btns">
+        <button class="m-primary" onclick="closeOv('ovInstall')">فهمت!</button>
+    </div>
+</div></div>
+
+<!-- Help Guide -->
+<div class="overlay" id="ovHelp"><div class="modal wide">
+    <h3>دليل الاستخدام</h3>
+    <div class="help-modal">
+        <div class="help-section">
+            <h4>📤 كيف أحوّل فلوس؟</h4>
+            <ul class="help-steps">
+                <li><span class="hs-num">1</span><span>اختر المحفظة (جوال باي أو بال باي أو بنك فلسطين)</span></li>
+                <li><span class="hs-num">2</span><span>في جوال باي اختر: لصديق أو دفع لتاجر</span></li>
+                <li><span class="hs-num">3</span><span>اكتب رقم المستلم والمبلغ</span></li>
+                <li><span class="hs-num">4</span><span>الرقم السري اختياري — يسرّع التحويل</span></li>
+                <li><span class="hs-num">5</span><span>اضغط زر «حوّل» — مكتوب عليه المبلغ والمستلم، فتأكد منهم قبل الضغط</span></li>
+                <li><span class="hs-num">⚡</span><span>للمرة الجاية: اضغط حقل الرقم وهو فاضي وبيطلعلك آخر من حوّلت لهم</span></li>
+                <li><span class="hs-num">🔑</span><span>في التطبيق: علّم «احفظه» تحت الرقم السري وما بتكتبه مرة ثانية، والتطبيق بينقفل بالبصمة</span></li>
+                <li><span class="hs-num">📋</span><span>نسخت رقم من واتساب؟ اضغط «لصق» وبنطلّع الرقم من النص</span></li>
+            </ul>
+        </div>
+        <div class="help-section">
+            <h4>❔ كيف أعرف إنه التحويل تم؟</h4>
+            <ul class="help-steps">
+                <li><span class="hs-num">1</span><span>من <strong>رسالة المحفظة (SMS)</strong> أو رصيدك — هذا المرجع الوحيد</span></li>
+                <li><span class="hs-num">2</span><span>فلو باي بيجهّز الكود وبيتصل فقط، وما بيعرف إذا التحويل تم أو لأ</span></li>
+                <li><span class="hs-num">3</span><span>إذا ما وصلتك رسالة، افحص رصيدك قبل ما تعيد التحويل</span></li>
+            </ul>
+        </div>
+        <div class="help-section">
+            <h4>📊 وين أشوف التحويلات القديمة؟</h4>
+            <ul class="help-steps">
+                <li><span class="hs-num">1</span><span>اضغط "السجل" من الشريط السفلي</span></li>
+                <li><span class="hs-num">2</span><span>فلتر حسب المحفظة أو ابحث بالرقم أو الاسم</span></li>
+                <li><span class="hs-num">3</span><span>كل حركة بتنحفظ «غير مؤكد» — علّمها «نجح» أو «فشل» بنفسك إذا بدك</span></li>
+            </ul>
+        </div>
+    </div>
+    <div class="promo-card muted">
+        <p>تحتاج مساعدة؟ تواصل معنا عالواتساب:</p>
+        <div class="promo-btns">
+            <button class="promo-wa" onclick="openWhatsApp()">💬 واتساب الدعم</button>
+            <button class="promo-share" onclick="closeOv('ovHelp');shareApp()">📤 شارك التطبيق</button>
+        </div>
+    </div>
+    <div class="modal-btns">
+        <button class="m-primary" onclick="closeOv('ovHelp')">فهمت! 👍</button>
+    </div>
+</div></div>
+
+<!-- Settings -->
+<div class="overlay" id="ovSettings"><div class="modal wide">
+    <h3>⚙️ الإعدادات</h3>
+    <div class="settings-section">
+        <label class="settings-label" for="setLargeThreshold">عتبة تحذير المبلغ الكبير (شيكل)</label>
+        <input type="tel" id="setLargeThreshold" class="ltr" inputmode="numeric" placeholder="100">
+        <small class="settings-hint">يظهر تحذير بصري عند تجاوز هذا المبلغ</small>
+    </div>
+    <div class="settings-section">
+        <label class="settings-label" for="setHistLimit">الحد الأقصى لعدد عناصر السجل</label>
+        <input type="tel" id="setHistLimit" class="ltr" inputmode="numeric" placeholder="200">
+        <small class="settings-hint">بين 50 و 1000 — العناصر القديمة تُحذف تلقائياً</small>
+    </div>
+    <div class="settings-section native-only">
+        <div class="settings-label">📞 طريقة التحويل</div>
+        <label class="switch-row">
+            <input type="checkbox" id="setInApp">
+            <span>⚡ التحويل داخل التطبيق</span>
+        </label>
+        <small class="settings-hint">جوال باي مع الرقم السري: التحويل كله بيصير جوّا التطبيق ويظهرلك رد المحفظة. (بال باي ما بتسمح بهيك — بتسأل عن الرقم السري أثناء الاتصال.)</small>
+        <button class="settings-btn" id="simResetBtn" onclick="resetSims()">📶 إعادة اختيار الشريحة لكل محفظة</button>
+    </div>
+    <div class="settings-section" id="lockSection" hidden>
+        <div class="settings-label">🔒 الحماية</div>
+        <label class="switch-row">
+            <input type="checkbox" id="setLock">
+            <span>قفل التطبيق بالبصمة</span>
+        </label>
+        <small class="settings-hint">يطلب البصمة (أو قفل الشاشة) عند فتح التطبيق وبعد 3 دقائق خارجه. يحمي الرقم السري المحفوظ.</small>
+    </div>
+    <div class="settings-section">
+        <div class="settings-label">💾 نسخ احتياطي للبيانات</div>
+        <small class="settings-hint block">يحفظ ملف JSON يحتوي مستفيديك وسجلّك. يعمل بدون إنترنت</small>
+        <div class="settings-row">
+            <button class="settings-btn settings-btn-sec" onclick="exportData()">📤 تصدير</button>
+            <button class="settings-btn settings-btn-sec" onclick="$('importFile').click()">📥 استيراد</button>
+            <input type="file" id="importFile" accept="application/json,.json" hidden onchange="importData(event)">
+        </div>
+    </div>
+    <div class="settings-section">
+        <div class="settings-label danger">⚠️ منطقة الخطر</div>
+        <button class="settings-btn settings-btn-danger" onclick="resetAllData()">حذف جميع البيانات</button>
+    </div>
+    <p class="version">الإصدار <span id="appVersion"></span> · <a href="privacy.html">سياسة الخصوصية</a> · <a href="terms.html">شروط الاستخدام</a></p>
+    <div class="modal-btns">
+        <button class="m-primary" onclick="saveSettings()">حفظ التغييرات</button>
+        <button class="m-cancel" onclick="closeOv('ovSettings')">إغلاق</button>
+    </div>
+</div></div>
+
+<!-- Onboarding -->
+<div class="overlay" id="ovOnboard"><div class="modal center">
+    <h3>أهلاً فيك! 👋</h3>
+    <div class="onboard-steps">
+        <p>فلو باي يجهّزلك مكالمة التحويل جاهزة:</p>
+        <p>1️⃣ اختر المحفظة (جوال باي / بال باي / بنك فلسطين)</p>
+        <p>2️⃣ اكتب رقم الشخص والمبلغ</p>
+        <p>3️⃣ اضغط "حوّل الآن" — وخلص! 🎉</p>
+    </div>
+    <p class="hint small">التطبيق لا يلمس فلوسك — بس يجهّز المكالمة. تأكيد التحويل دايمًا من رسالة المحفظة</p>
+    <p class="hint small">باستخدامك التطبيق توافق على <a href="terms.html">شروط الاستخدام</a> و<a href="privacy.html">سياسة الخصوصية</a></p>
+    <div class="modal-btns">
+        <button class="m-primary" onclick="closeOnboard()">يلا نبدأ!</button>
+    </div>
+</div></div>
+
+<!-- App lock (Android): covers everything until the fingerprint check passes -->
+<div class="lock-screen" id="lockScreen" hidden>
+    <img src="img/logo.png" alt="فلو باي" width="120">
+    <p>التطبيق مقفل</p>
+    <button class="btn-main" onclick="unlockApp()">🔓 افتح بالبصمة</button>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="native.js?v=2.0.0.29"></script>
+<script src="app.js?v=2.0.0.29"></script>
+</body>
+</html>
