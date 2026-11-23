@@ -6,7 +6,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const FILES = [
-  'index.html', 'app.css', 'app.js', 'native.js', 'sw.js', 'manifest.json', 'privacy.html',
+  'index.html', 'app.css', 'app.js', 'native.js', 'sw.js', 'manifest.json', 'privacy.html', 'terms.html',
   '_headers', '.nojekyll', 'icons', 'img', 'vendor'
 ];
 // الملفات التي تحمل __BUILD__
