@@ -485,20 +485,12 @@ function confirmCall() {
         if (!isValidTo(phone)) { toast(isMerchant() ? 'أدخل رقم التاجر' : 'أدخل رقم صحيح (يبدأ بـ 05)'); return; }
         if (!isValidAmt(amount)) { toast('أدخل المبلغ'); return; }
     }
-    // ضغطة وحدة: الزر نفسه مكتوب عليه المبلغ والمستلم. نافذة التأكيد للمبالغ الكبيرة فقط
-    if (tab === 'bop' || !(parseFloat(amount) > threshold())) { proceedCall(); return; }
-    let info;
-    if (tab === 'bop') {
-        info = '<div class="confirm-main">رح تفتح قائمة بنك فلسطين</div>';
-    } else {
-        const typeText = tab === 'jawwal' ? (jawwalType === '2' ? 'دفع لتاجر' : 'تحويل لصديق') : 'تحويل';
-        const who = contactName(phone) || phone;
-        info = `<div class="confirm-main">${typeText}: <span class="amt">${esc(amount)} شيكل</span><br>لـ <span class="who">${esc(who)}</span><br>عبر ${SVC[tab].name}</div>`;
-        if (parseFloat(amount) > threshold()) info += '<div class="confirm-warn">⚠️ مبلغ كبير — تأكد جيداً</div>';
-    }
-    const code = buildCode();
-    info += `<div class="code-box">${esc(maskPin(code))}</div>`;
-    info += '<ul class="steps-mini">' + ussdSteps(code).map(t => `<li>${t}</li>`).join('') + '</ul>';
+    // قائمة البنك ليست تحويلاً فلا تحتاج تأكيدًا. كل تحويل يُعرض أولاً: المبلغ، والمستلم برقمه، والمحفظة
+    if (tab === 'bop') { proceedCall(); return; }
+    const typeText = tab === 'jawwal' ? (jawwalType === '2' ? 'دفع لتاجر' : 'تحويل لصديق') : 'تحويل';
+    const name = contactName(phone);
+    let info = `<div class="confirm-main">${typeText}<br><span class="amt">${esc(amount)} شيكل</span><br>إلى ${name ? '<span class="who">' + esc(name) + '</span><br>' : ''}<span class="confirm-num">${esc(phone)}</span><br><small>عبر ${SVC[tab].name}</small></div>`;
+    if (parseFloat(amount) > threshold()) info += '<div class="confirm-warn">⚠️ مبلغ كبير — تأكد جيداً</div>';
     $('confirmInfo').innerHTML = info;
     $('ovConfirm').querySelector('.m-primary').textContent = CAN_DIAL ? 'يلّا، حوّل 📞' : 'انسخ الكود 📋';
     openOv('ovConfirm');
