@@ -453,3 +453,8 @@ body.has-action{padding-bottom:calc(160px + env(safe-area-inset-bottom,0px))}
 .lock-screen p{color:var(--dim);font-size:15px}
 .lock-screen .btn-main{max-width:280px}
 .hint a{color:var(--accent)}
+
+/* رسالة التأكيد: رقم المستلم كبير وواضح */
+.confirm-main .amt{font-size:26px}
+.confirm-num{display:inline-block;direction:ltr;font-size:24px;font-weight:800;letter-spacing:1px;color:var(--text)}
+.confirm-main small{font-size:14px;font-weight:600;color:var(--dim)}
