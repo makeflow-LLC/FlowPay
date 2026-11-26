@@ -151,11 +151,6 @@
         <button id="callBtn" class="btn-main" onclick="confirmCall()" disabled>📞 حوّل الآن</button>
     </div>
 
-    <button class="receive-cta" onclick="showReceive()">
-        <span class="scan-ico">📥</span>
-        <span><b>بدك تستلم؟ اعمل كود QR</b><small>اللي يمسحه بكاميرا جواله بينفتحله كود التحويل جاهز — بدون أي تطبيق</small></span>
-    </button>
-
     <div class="footer-links">
         <button onclick="shareApp()">📤 شارك التطبيق</button>
         <button onclick="sendFeedback()">💬 اقتراح أو مساعدة</button>
@@ -164,6 +159,17 @@
     </div><!-- end sendSection -->
 
 </div><!-- end pageHome -->
+
+<!-- Beneficiaries Page -->
+<div class="page" id="pagePeople">
+    <div class="card-title page-title"><span>المستفيدون <small id="peopleCount"></small></span></div>
+    <div class="people-actions">
+        <button class="btn-main" onclick="showAddContact()">＋ إضافة مستفيد</button>
+        <button class="btn-sec" id="peopleFromPhone" onclick="addFromPhone()" hidden>📇 من جهات الاتصال</button>
+    </div>
+    <input class="hist-search" type="search" placeholder="بحث بالاسم أو الرقم..." oninput="renderPeople()" id="peopleSearch">
+    <div id="peopleList"></div>
+</div>
 
 <!-- History Page -->
 <div class="page" id="pageHistory">
@@ -204,7 +210,9 @@
 <!-- Bottom Navigation -->
 <nav class="bottom-nav">
     <button class="nav-item active" data-page="home" onclick="navTo('home')"><span class="nav-icon">🏠</span>الرئيسية</button>
+    <button class="nav-item" data-page="people" onclick="navTo('people')"><span class="nav-icon">👥</span>المستفيدون</button>
     <button class="nav-scan" onclick="startScanner()" aria-label="امسح كود QR"><span>📷</span></button>
+    <button class="nav-item" onclick="showReceive()"><span class="nav-icon">📥</span>استلام</button>
     <button class="nav-item" data-page="history" onclick="navTo('history')"><span class="nav-icon">📊</span>السجل</button>
 </nav>
 
@@ -277,7 +285,8 @@
 
 <!-- Wallet reply to an in-app USSD request: shown verbatim, the app never judges the outcome -->
 <div class="overlay" id="ovReply"><div class="modal center">
-    <h3 id="replyTitle">📩 رد المحفظة</h3>
+    <div class="reply-icon" id="replyIcon">?</div>
+    <h3 id="replyTitle">رد المحفظة</h3>
     <p class="ussd-msg" id="replyMsg" hidden></p>
     <p class="hint" id="replyHint"></p>
     <div class="modal-btns">
@@ -365,7 +374,8 @@
             <h4>❔ كيف أعرف إنه التحويل تم؟</h4>
             <ul class="help-steps">
                 <li><span class="hs-num">1</span><span>من <strong>رسالة المحفظة (SMS)</strong> أو رصيدك — هذا المرجع الوحيد</span></li>
-                <li><span class="hs-num">2</span><span>فلو باي بيجهّز الكود وبيتصل فقط، وما بيعرف إذا التحويل تم أو لأ</span></li>
+                <li><span class="hs-num">2</span><span>جوال باي داخل التطبيق: بيظهرلك رد المحفظة — أخضر إذا نجح وأحمر إذا لأ، وبيتسجّل في السجل</span></li>
+                <li><span class="hs-num">•</span><span>باقي التحويلات بتتم بالاتصال، فالتطبيق ما بيعرف نتيجتها — علّمها بنفسك</span></li>
                 <li><span class="hs-num">3</span><span>إذا ما وصلتك رسالة، افحص رصيدك قبل ما تعيد التحويل</span></li>
             </ul>
         </div>
