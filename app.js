@@ -215,14 +215,17 @@ function showPage(page) {
     document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page' + page.charAt(0).toUpperCase() + page.slice(1)));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
     if (page === 'history') { histShown = 60; renderHistFull(); renderAnalytics(); }
+    if (page === 'people') { $('peopleSearch').value = ''; renderPeople(); }
     window.scrollTo(0, 0);
 }
+// الصفحات الفرعية (المستفيدون، السجل) خطوة واحدة في سجل الرجوع: زر الرجوع يعيد للرئيسية
 function navTo(page) {
     vib();
     if (page === curPage) return;
-    if (page === 'history') { showPage('history'); history.pushState({ page: 'history' }, ''); }
-    else if (history.state && history.state.page === 'history') history.back();
-    else showPage(page);
+    const sub = !!(history.state && history.state.page && history.state.page !== 'home' && !history.state.ov);
+    if (page === 'home') { if (sub) history.back(); else showPage('home'); return; }
+    showPage(page);
+    if (sub) history.replaceState({ page }, ''); else history.pushState({ page }, '');
 }
 
 function showHelp() { vib(); openOv('ovHelp'); }
@@ -665,20 +668,37 @@ function dialCode(code, simId) {
 
 let dialing = false, retry = null, lockAvailable = false;
 
-// رد الشبكة على التنفيذ داخل التطبيق: يُعرض حرفيًا. لا عنوان «تم» ولا «فشل» من عندنا،
-// ولا تتغير حالة الحركة في السجل — المرجع رسالة المحفظة نفسها.
+// رد الشبكة على التنفيذ داخل التطبيق يحدد النتيجة:
+//  - فيه «بنجاح» (مثل «تم تحويل المبلغ بنجاح») ← أخضر، وتُسجَّل الحركة ناجحة.
+//  - أي رد آخر (خطأ، رفض، قائمة) ← أحمر مع نص الرد، وتُسجَّل فاشلة.
+//  - لا رد إطلاقًا ← لا نعرف: لا تُسجَّل ناجحة ولا فاشلة، وننبّه لفحص الرصيد قبل الإعادة.
+function replyKind(msg) {
+    if (!msg) return 'unknown';
+    const bad = /لم |لا يمكن|غير |فشل|خطأ|خاطئ|رفض|مرفوض|تعذر|تعذّر|fail|error|invalid|denied|reject|unable|not /i.test(msg);
+    return !bad && /بنجاح|success/i.test(msg) ? 'ok' : 'bad';
+}
 function showReply(res, svc) {
     const msg = res && res.ok && res.message ? String(res.message).trim() : '';
-    // سؤال أو قائمة مرقّمة = الجلسة تنتظر ردًا لا نستطيع إرساله من هنا
-    const needsInput = !!msg && /(^|\n)\s*\d{1,2}\s*[.)\-:]\s*\D|أدخل|ادخل|اختر|enter|select|choose/i.test(msg);
-    $('replyTitle').textContent = msg ? '📩 رد ' + SVC[svc].name : '⚠️ ما وصل رد من الشبكة';
+    const kind = replyKind(msg);
+    // سؤال أو قائمة مرقّمة = الجلسة تنتظر ردًا لا نستطيع إرساله من هنا، فنعرض إكمالها بالاتصال
+    const needsInput = kind === 'bad' && /(^|\n)\s*\d{1,2}\s*[.)\-:]\s*\D|أدخل|ادخل|اختر|enter|select|choose/i.test(msg);
+    const h = hist.find(h => h.id === session.get('fp_pending'));
+    if (h && kind !== 'unknown') {
+        h.status = kind === 'ok' ? 'نجح' : 'فشل';
+        saveHist();
+        renderRecent();
+    }
+    vib(kind === 'ok' ? 60 : [40, 60, 40]);
+    $('ovReply').querySelector('.modal').className = 'modal center reply-' + kind;
+    $('replyIcon').textContent = kind === 'ok' ? '✓' : kind === 'bad' ? '✕' : '?';
+    $('replyTitle').textContent = kind === 'ok' ? 'تم التحويل بنجاح' : kind === 'bad' ? 'لم ينجح التحويل' : 'ما وصل رد من الشبكة';
     $('replyMsg').hidden = !msg;
     $('replyMsg').textContent = msg;
-    $('replyHint').textContent = !msg
-        ? 'ما قدرنا نقرأ رد الشبكة، وما بنعرف إذا التحويل تم أو لأ. افحص رسائل المحفظة أو رصيدك قبل ما تعيد — حتى ما يتكرر التحويل.'
-        : needsInput
-            ? 'الشبكة ردّت بسؤال أو قائمة، والتطبيق ما بيقدر يرد عليها من هنا. إذا بدك، كمّل عبر الاتصال العادي.'
-            : 'هذا رد المحفظة كما وصل. فلو باي ما بيحكم إذا تم التحويل — المرجع رسالة المحفظة (SMS) أو رصيدك.';
+    $('replyHint').textContent = kind === 'ok'
+        ? 'هذا رد ' + SVC[svc].name + '. سجّلناها في السجل كحركة ناجحة.'
+        : kind === 'bad'
+            ? 'هذا رد ' + SVC[svc].name + '. سجّلناها في السجل كحركة فاشلة.' + (needsInput ? ' الشبكة بتطلب ردّ — بتقدر تكمّل عبر الاتصال العادي.' : '')
+            : 'ما قدرنا نقرأ رد الشبكة، وما بنعرف إذا التحويل تم أو لأ. افحص رسائل المحفظة أو رصيدك قبل ما تعيد — حتى ما يتكرر التحويل.';
     if (!needsInput) retry = null;
     $('replyRetry').hidden = !retry;
     showOver('ovBusy', 'ovReply');
@@ -690,6 +710,9 @@ function retryByCall() {
     const r = retry;
     retry = null;
     dialing = !!r;
+    // المحاولة مستمرة بالاتصال: الحركة ترجع «غير مؤكد» ليعلّمها المستخدم بعد المكالمة
+    const h = r && hist.find(h => h.id === session.get('fp_pending'));
+    if (h) { h.status = ''; saveHist(); }
     closeOv('ovReply');
     if (!r) return;
     copySecret(r.pin).then(() => toast('الرقم السري منسوخ — الصقه لما يطلبه'), () => {});
@@ -997,6 +1020,7 @@ function shareQR() {
 
 // ===== BENEFICIARIES =====
 function renderContacts() {
+    if (curPage === 'people') renderPeople();
     const bar = $('contactsBar');
     if (!contacts.length) {
         bar.innerHTML = '<p class="empty">لا يوجد مستفيدون محفوظون</p><button class="chip-add" onclick="showAddContact()">+ إضافة أول مستفيد</button>';
@@ -1006,6 +1030,49 @@ function renderContacts() {
         const st = CATS[c.category] || CATS['آخر'];
         return `<div class="beneficiary-item" role="button" tabindex="0" onclick="pickContact(${i})"><span class="beneficiary-icon" style="background:${st[1]}">${st[0]}</span><span class="beneficiary-info"><span class="beneficiary-name">${esc(c.name)}</span><span class="beneficiary-phone">${esc(c.phone)}${c.category ? ' · ' + esc(c.category) : ''}</span></span><span class="beneficiary-actions"><button onclick="event.stopPropagation();showEditContact(${i})" aria-label="تعديل">✏️</button><button onclick="event.stopPropagation();askDel(${i})" aria-label="حذف">×</button></span></div>`;
     }).join('');
+}
+
+// ===== صفحة المستفيدين: إضافة، تعديل، حذف، بحث، وتحويل بضغطة =====
+function renderPeople() {
+    const box = $('peopleList');
+    const q = toDigits($('peopleSearch').value.trim()).toLowerCase();
+    $('peopleFromPhone').hidden = !hasContactPicker;
+    $('peopleCount').textContent = contacts.length ? '(' + contacts.length + ')' : '';
+    const rows = contacts.map((c, i) => [c, i]).filter(([c]) => !q || c.name.toLowerCase().includes(q) || c.phone.includes(q));
+    if (!contacts.length) { box.innerHTML = '<div class="hist-empty">ما في مستفيدين محفوظين بعد.<br>أضف أول واحد من الزر فوق.</div>'; return; }
+    if (!rows.length) { box.innerHTML = '<div class="hist-empty">لا يوجد مستفيد بهذا الاسم أو الرقم</div>'; return; }
+    box.innerHTML = rows.map(([c, i]) => {
+        const st = CATS[c.category] || CATS['آخر'];
+        return `<div class="beneficiary-item person"><span class="beneficiary-icon" style="background:${st[1]}">${st[0]}</span><span class="beneficiary-info"><span class="beneficiary-name">${esc(c.name)}</span><span class="beneficiary-phone">${esc(c.phone)}${c.category ? ' · ' + esc(c.category) : ''}</span></span><span class="beneficiary-actions"><button class="person-send" onclick="sendToContact(${i})">حوّل</button><button onclick="showEditContact(${i})" aria-label="تعديل">✏️</button><button onclick="askDel(${i})" aria-label="حذف">🗑️</button></span></div>`;
+    }).join('');
+}
+function sendToContact(i) {
+    if (!contacts[i]) return;
+    if (!tab || tab === 'bop') selectService(SVC[store.get('fp_last_svc', '')] && store.get('fp_last_svc') !== 'bop' ? store.get('fp_last_svc') : 'jawwal');
+    if (isMerchant()) { jawwalType = '1'; updateTypeUI(); }
+    pickContact(i);
+    navTo('home');
+}
+// مستفيد جديد من جهات اتصال الجوال: يعبّي الاسم والرقم ويبقى عليك تأكيد الحفظ
+async function addFromPhone() {
+    vib();
+    try {
+        let raw = '', name = '';
+        if (Native.pickContact) {
+            const r = await Native.pickContact();
+            if (!r || r.cancelled) return;
+            raw = r.phone || ''; name = r.name || '';
+        } else {
+            const picked = await navigator.contacts.select(['tel', 'name'], { multiple: false });
+            if (!picked || !picked.length) return;
+            raw = (picked[0].tel && picked[0].tel[0]) || ''; name = (picked[0].name && picked[0].name[0]) || '';
+        }
+        const phone = normalizePhone(raw);
+        if (!isValidPh(phone)) { toast('الرقم المختار ليس رقم جوال فلسطيني'); return; }
+        if (contacts.some(c => c.phone === phone)) { toast('هذا الرقم محفوظ مسبقاً'); return; }
+        fillContactForm(-1, { phone, name: String(name).slice(0, 40) }, 'إضافة مستفيد');
+        openOv('ovContact');
+    } catch (e) { toast('تعذّر فتح جهات الاتصال'); }
 }
 
 function setBeneficiaries(open) {

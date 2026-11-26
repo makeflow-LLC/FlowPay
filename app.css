@@ -458,3 +458,25 @@ body.has-action{padding-bottom:calc(160px + env(safe-area-inset-bottom,0px))}
 .confirm-main .amt{font-size:26px}
 .confirm-num{display:inline-block;direction:ltr;font-size:24px;font-weight:800;letter-spacing:1px;color:var(--text)}
 .confirm-main small{font-size:14px;font-weight:600;color:var(--dim)}
+
+/* ===== الشريط السفلي بخمسة عناصر، صفحة المستفيدين، نتيجة التحويل ===== */
+.nav-item{max-width:none;font-size:10.5px;min-width:0}
+.nav-icon{font-size:20px}
+.nav-scan{margin:-26px 4px 4px}
+.people-actions{display:flex;gap:8px;margin-bottom:12px}
+.people-actions .btn-main{margin:0;padding:13px;font-size:15px;flex:1.3}
+.people-actions .btn-sec{margin:0;background:var(--surface);border-color:var(--line);color:var(--text)}
+.page-title small{color:var(--dim);font-weight:600;font-size:14px}
+.person{cursor:default;padding:12px}
+.person .beneficiary-name{font-size:15px}
+.person-send{width:auto!important;padding:0 14px;background:var(--grad);color:#fff!important;font-size:13px!important;font-weight:700;border-radius:10px!important}
+.reply-icon{width:72px;height:72px;margin:2px auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:900;background:rgba(251,191,36,.14);color:var(--warn);border:3px solid var(--warn)}
+.reply-ok{border:2px solid var(--ok)!important}
+.reply-ok .reply-icon{background:rgba(74,222,128,.15);color:var(--ok);border-color:var(--ok)}
+.reply-ok h3{color:var(--ok)}
+.reply-ok .ussd-msg{border:1px solid rgba(74,222,128,.4);text-align:center}
+.reply-bad{border:2px solid var(--danger)!important}
+.reply-bad .reply-icon{background:rgba(248,113,113,.14);color:var(--danger);border-color:var(--danger)}
+.reply-bad h3{color:var(--danger)}
+.reply-bad .ussd-msg{border:1px solid rgba(248,113,113,.5)}
+.reply-unknown h3{color:var(--warn)}
